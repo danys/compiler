@@ -43,23 +43,71 @@ extern YYSTYPE cool_yylval;
 /*
  *  Add Your own definitions here
  */
-int curr_lineno = 1;
+curr_lineno = 1;
+int counter=0;
+void setStringSymbol()
+{
+	Entry* sEntry = new Entry(yytext,yyleng,counter++);
+	cool_yylval.symbol = sEntry;
+}
+
+void addToIntTable()
+{
+	inttable.add_int(atoi(yytext));
+}
+
+void addToStringTable()
+{
+	stringtable.add_string(yytext,yyleng);
+}
+
+void addToIdTable()
+{
+	idtable.add_string(yytext,yyleng);
+}
+
 %}
 
 /*
  * Define names for regular expressions here.
  */
 
-DARROW          =>
-DIGIT		[0-9]
-UALPHA		[A-Z] 
-LALPHA		[a-z]
-ALPHA		UALPHA|LALPHA
+DARROWp		          =>
+DIGIT			  [0-9]
+UALPHA			  [A-Z] 
+LALPHA			  [a-z]
+ALPHA			  {UALPHA}|{LALPHA}
+ALPHAUSCORE		  {ALPHA}|_
+CLASSp			  [cC][lL][aA][sS]{2}
+ELSEp			  [eE][lL][sS][eE]
+FALSEp			  f[aA][lL][sS][eE]
+FIp			  [fF][iI]
+IFp			  [iI][fF]
+INp			  [iI][nN]
+INHERITSp		  [iI][nN][hH][eE][rR][iI][tT][sS]
+ISVOIDp			  [iI][sS][vV][oO][iI][dD]
+LETp			  [lL][eE][tT]
+LOOPp			  [lL][oO]{2}[pP]
+POOLp			  [pP][oO]{2}[lL]
+THENp			  [tT][hH][eE][nN]
+WHILEp			  [wW][hH][iI][lL][eE]
+CASEp			  [cC][aA][sS][eE]
+ESACp			  [eE][sS][aA][cC]
+NEWp			  [nN][eE][wW]
+OFp			  [oO][fF]
+NOTp			  [nN][oO][tT]
+TRUEp			  t[rR][uU][eE]
+WHITESPACE		  [ \f\r\t\v]
+TYPEIDp			  {UALPHA}{ALPHAUSCORE}*
+OBJECTIDp		  {LALPHA}{ALPHAUSCORE}*
+STRINGp			  "[^"]*"
 
 %%
 
-\n		curr_lineno++;
-DIGIT+		YYSTYPE t; t.expression=atoi(yytext);cool_yyval.symbol=t;/*Insert integer in symbol table*/;return INT_CONST;
+\n			{curr_lineno++;setStringSymbol();addToStringTable();return STR_CONST;}
+{WHITESPACE}		{setStringSymbol();addToStringTable();return STR_CONST;}
+{DIGIT}+		{setStringSymbol();addToIntTable();return INT_CONST;}
+
 
  /*
   *  Nested comments
@@ -75,8 +123,28 @@ DIGIT+		YYSTYPE t; t.expression=atoi(yytext);cool_yyval.symbol=t;/*Insert intege
   * Keywords are case-insensitive except for the values true and false,
   * which must begin with a lower-case letter.
   */
+{CLASSp}		{return CLASS;}
+{ELSEp}			{return ELSE;}
+{FALSEp}		{return FALSE;}
+{FIp}			{return FI;}
+{IFp}			{return IF;}
+{INp}			{return IN;}
+{INHERITSp}		{return INHERITS;}
+{ISVOIDp}		{return ISVOID;}
+{LETp}			{return LET;}
+{LOOPp}			{return LOOP;}
+{POOLp}			{return POOL;}
+{THENp}			{return THEN;}
+{WHILEp}		{return WHILE;}
+{CASEp}			{return CASE;}
+{ESACp}			{return ESAC;}
+{NEWp}			{return NEW;}
+{OFp}			{return OF;}
+{NOTp}			{return NOT;}
+{TRUEp}			{return TRUE;} 
 
-
+{TYPEIDp}		{setStringSymbol();addToStringTable();return TYPEID;}
+{OBJECTIDp}		{setStringSymbol();addToStringTable();return OBJECTID;}
  /*
   *  String constants (C syntax)
   *  Escape sequence \c is accepted for all characters c. Except for 
