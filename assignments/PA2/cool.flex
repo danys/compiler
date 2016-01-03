@@ -66,6 +66,30 @@ void addToIdTable()
 	idtable.add_string(yytext,yyleng);
 }
 
+void cleanStringSetSymbolAddStringTable()
+{
+	char* lexstr = yytext;
+	int len = yyleng;
+	int cc = 0;
+	int i=0;
+	while(i<yyleng)
+	{
+		if ((lexstr[i]=='\') && (i+1<yyleng) && ((lexstr[i+1]!='b') || (lexstr[i+1]!='t') || (lexstr[i+1]!='n') || (lexstr[i+1]!='f')))
+		{
+			cc++;
+			i++;
+		}
+		i++;	
+	}
+	//TODO
+	//Allocate array size len-cc
+	//Unescape and copy chars
+	//Check validity of string
+	//On error -> return error
+	//Else put string in string table
+	//Set symbol
+}
+
 %}
 
 /*
@@ -100,7 +124,7 @@ TRUEp			  t[rR][uU][eE]
 WHITESPACE		  [ \f\r\t\v]
 TYPEIDp			  {UALPHA}{ALPHAUSCORE}*
 OBJECTIDp		  {LALPHA}{ALPHAUSCORE}*
-STRINGp			  "[^"]*"
+STRINGp			  \"[^\"]*\"
 
 %%
 
@@ -145,6 +169,7 @@ STRINGp			  "[^"]*"
 
 {TYPEIDp}		{setStringSymbol();addToStringTable();return TYPEID;}
 {OBJECTIDp}		{setStringSymbol();addToStringTable();return OBJECTID;}
+{STRINGp}		{;return STR_CONST;}
  /*
   *  String constants (C syntax)
   *  Escape sequence \c is accepted for all characters c. Except for 
