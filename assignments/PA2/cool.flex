@@ -12,6 +12,7 @@
 #include <stringtab.h>
 #include <utilities.h>
 #include <stdlib.h>
+#include <string>
 
 /* The compiler assumes these identifiers. */
 #define yylval cool_yylval
@@ -43,8 +44,10 @@ extern YYSTYPE cool_yylval;
 /*
  *  Add Your own definitions here
  */
-curr_lineno = 1;
 int counter=0;
+int nNestedComments=0;
+std::string text; //the string to record strings and comments
+bool invalidStr=false;
 void setStringSymbol()
 {
 	Entry* sEntry = new Entry(yytext,yyleng,counter++);
@@ -66,30 +69,6 @@ void addToIdTable()
 	idtable.add_string(yytext,yyleng);
 }
 
-void cleanStringSetSymbolAddStringTable()
-{
-	char* lexstr = yytext;
-	int len = yyleng;
-	int cc = 0;
-	int i=0;
-	while(i<yyleng)
-	{
-		if ((lexstr[i]=='\') && (i+1<yyleng) && ((lexstr[i+1]!='b') || (lexstr[i+1]!='t') || (lexstr[i+1]!='n') || (lexstr[i+1]!='f')))
-		{
-			cc++;
-			i++;
-		}
-		i++;	
-	}
-	//TODO
-	//Allocate array size len-cc
-	//Unescape and copy chars
-	//Check validity of string
-	//On error -> return error
-	//Else put string in string table
-	//Set symbol
-}
-
 %}
 
 /*
@@ -97,6 +76,7 @@ void cleanStringSetSymbolAddStringTable()
  */
 
 DARROWp		          =>
+ARROWp			  <-
 DIGIT			  [0-9]
 UALPHA			  [A-Z] 
 LALPHA			  [a-z]
@@ -121,27 +101,62 @@ NEWp			  [nN][eE][wW]
 OFp			  [oO][fF]
 NOTp			  [nN][oO][tT]
 TRUEp			  t[rR][uU][eE]
-WHITESPACE		  [ \f\r\t\v]
+WHITESPACE		  [ \f\r\t\v\32]
 TYPEIDp			  {UALPHA}{ALPHAUSCORE}*
 OBJECTIDp		  {LALPHA}{ALPHAUSCORE}*
-STRINGp			  \"[^\"]*\"
+DOUBLEDASH		  --
 
+%x INCOMMENT INSTRING
 %%
 
-\n			{curr_lineno++;setStringSymbol();addToStringTable();return STR_CONST;}
-{WHITESPACE}		{setStringSymbol();addToStringTable();return STR_CONST;}
-{DIGIT}+		{setStringSymbol();addToIntTable();return INT_CONST;}
+<INITIAL,INCOMMENT>\n	{curr_lineno++;}
+{WHITESPACE}		{}
+{DIGIT}+		{cool_yylval.symbol=inttable.add_int(atoi(yytext));return INT_CONST;}
 
-
+ /* Single line comments */
+{DOUBLEDASH}[^\n]*	{}
  /*
   *  Nested comments
   */
+<INITIAL,INCOMMENT>\(\*		{
+nNestedComments++;
+BEGIN(INCOMMENT);
+}
 
+<INCOMMENT>.		{text += yytext;}
+
+<INCOMMENT>\*\)		{
+   nNestedComments--;
+   if (nNestedComments==0)
+   {
+	BEGIN(INITIAL);
+   }
+   else if (nNestedComments<0)
+   {
+	BEGIN(INITIAL);
+	text.clear();
+	nNestedComments=0;
+	cool_yylval.error_msg="Unmatched *)";
+	return ERROR;
+   }
+}
+
+<INITIAL>\*\)
+{
+	cool_yylval.error_msg="Unmatched *)";
+	return ERROR;	
+}
+
+<INCOMMENT><<EOF>>	{
+	cool_yylval.error_msg="EOF in comment";
+	return ERROR;
+}
 
  /*
   *  The multiple-character operators.
   */
-{DARROW}		{ return (DARROW); }
+{DARROWp}		{ return (DARROW); }
+{ARROWp}		{ return LE;}
 
  /*
   * Keywords are case-insensitive except for the values true and false,
@@ -149,7 +164,6 @@ STRINGp			  \"[^\"]*\"
   */
 {CLASSp}		{return CLASS;}
 {ELSEp}			{return ELSE;}
-{FALSEp}		{return FALSE;}
 {FIp}			{return FI;}
 {IFp}			{return IF;}
 {INp}			{return IN;}
@@ -165,11 +179,30 @@ STRINGp			  \"[^\"]*\"
 {NEWp}			{return NEW;}
 {OFp}			{return OF;}
 {NOTp}			{return NOT;}
-{TRUEp}			{return TRUE;} 
+
+{TRUEp}			{cool_yylval.boolean=false;return BOOL_CONST;}
+{FALSEp}		{cool_yylval.boolean=true;return BOOL_CONST;}
 
 {TYPEIDp}		{setStringSymbol();addToStringTable();return TYPEID;}
 {OBJECTIDp}		{setStringSymbol();addToStringTable();return OBJECTID;}
-{STRINGp}		{;return STR_CONST;}
+
+"+"			{return '+';}
+"-"			{return '-';}
+"*"			{return '*';}
+"/"			{return '/';}
+"~"			{return '~';}
+"<"			{return '<';}
+"="			{return '=';}
+"("			{return '(';}
+")"			{return ')';}
+"{"			{return '{';}
+"}"			{return '}';}
+";"			{return ';';}
+":"			{return ';';}
+","			{return ',';}
+"@"			{return '@';}
+"\."			{return '.';}
+
  /*
   *  String constants (C syntax)
   *  Escape sequence \c is accepted for all characters c. Except for 
@@ -177,5 +210,53 @@ STRINGp			  \"[^\"]*\"
   *
   */
 
+\"			{BEGIN(INSTRING);invalidStr=false;}
 
+<INSTRING>\n		{
+   curr_lineno++;
+   BEGIN(INITIAL);
+   yylval.error_msg="Unterminated string constant";
+   return ERROR;
+}
+
+<INSTRING><<EOF>>	{BEGIN(INITIAL);cool_yylval.error_msg="EOF in string constant";return ERROR;}
+
+<INSTRING>[\0]		{
+			cool_yylval.error_msg="String contains null character";
+			invalidStr=true;
+			return ERROR;
+}
+
+ /* Convert \c to c and compact two letter special chars  */
+<INSTRING>\\.|\\\n	{
+char c;
+if (yytext[1]=='b') c='\b';
+else if (yytext[1]=='t') c='\t';
+else if (yytext[1]=='n') c='\n';
+else if (yytext[1]=='f') c='\f';
+else if (yytext[1]=='\n') {c=yytext[1];curr_lineno++;}
+else c=yytext[1];
+text += c;
+}
+
+ /* Match end of string  */
+<INSTRING>\" 		{
+   BEGIN(INITIAL);
+   if (text.size()>MAX_STR_CONST){
+      cool_yylval.error_msg="String constant too long";
+      text.clear(); 
+      return ERROR;
+   }
+   if (!invalidStr)
+   {
+	cool_yylval.symbol=stringtable.add_string(const_cast<char*>(text.c_str()),text.size());
+	text.clear();
+	return STR_CONST;
+   }
+}
+
+<INSTRING>.		{text += yytext;}
+
+ /* All other unmatches characters result in an error */
+.			{cool_yylval.error_msg=yytext;return ERROR;}
 %%
