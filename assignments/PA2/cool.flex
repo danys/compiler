@@ -54,21 +54,6 @@ void setStringSymbol()
 	cool_yylval.symbol = sEntry;
 }
 
-void addToIntTable()
-{
-	inttable.add_int(atoi(yytext));
-}
-
-void addToStringTable()
-{
-	stringtable.add_string(yytext,yyleng);
-}
-
-void addToIdTable()
-{
-	idtable.add_string(yytext,yyleng);
-}
-
 %}
 
 /*
@@ -111,7 +96,7 @@ DOUBLEDASH		  --
 
 <INITIAL,INCOMMENT>\n	{curr_lineno++;}
 {WHITESPACE}		{}
-{DIGIT}+		{cool_yylval.symbol=inttable.add_int(atoi(yytext));return INT_CONST;}
+{DIGIT}+		{cool_yylval.symbol=inttable.add_int(strtol(yytext,&yytext+yyleng,10));return INT_CONST;}
 
  /* Single line comments */
 {DOUBLEDASH}[^\n]*	{}
@@ -119,11 +104,9 @@ DOUBLEDASH		  --
   *  Nested comments
   */
 <INITIAL,INCOMMENT>\(\*		{
-nNestedComments++;
-BEGIN(INCOMMENT);
+   nNestedComments++;
+   BEGIN(INCOMMENT);
 }
-
-<INCOMMENT>.		{text += yytext;}
 
 <INCOMMENT>\*\)		{
    nNestedComments--;
@@ -141,22 +124,24 @@ BEGIN(INCOMMENT);
    }
 }
 
-<INITIAL>\*\)
-{
+<INITIAL>\*\)		{
 	cool_yylval.error_msg="Unmatched *)";
 	return ERROR;	
 }
 
 <INCOMMENT><<EOF>>	{
+	BEGIN(INITIAL);
 	cool_yylval.error_msg="EOF in comment";
 	return ERROR;
 }
+
+<INCOMMENT>.		{text += yytext;}
 
  /*
   *  The multiple-character operators.
   */
 {DARROWp}		{ return (DARROW); }
-{ARROWp}		{ return LE;}
+{ARROWp}		{ return ASSIGN;}
 
  /*
   * Keywords are case-insensitive except for the values true and false,
@@ -183,8 +168,8 @@ BEGIN(INCOMMENT);
 {TRUEp}			{cool_yylval.boolean=false;return BOOL_CONST;}
 {FALSEp}		{cool_yylval.boolean=true;return BOOL_CONST;}
 
-{TYPEIDp}		{setStringSymbol();addToStringTable();return TYPEID;}
-{OBJECTIDp}		{setStringSymbol();addToStringTable();return OBJECTID;}
+{TYPEIDp}		{cool_yylval.symbol=idtable.add_string(yytext,yyleng);return TYPEID;}
+{OBJECTIDp}		{cool_yylval.symbol=idtable.add_string(yytext,yyleng);return OBJECTID;}
 
 "+"			{return '+';}
 "-"			{return '-';}
@@ -210,35 +195,6 @@ BEGIN(INCOMMENT);
   *
   */
 
-\"			{BEGIN(INSTRING);invalidStr=false;}
-
-<INSTRING>\n		{
-   curr_lineno++;
-   BEGIN(INITIAL);
-   yylval.error_msg="Unterminated string constant";
-   return ERROR;
-}
-
-<INSTRING><<EOF>>	{BEGIN(INITIAL);cool_yylval.error_msg="EOF in string constant";return ERROR;}
-
-<INSTRING>[\0]		{
-			cool_yylval.error_msg="String contains null character";
-			invalidStr=true;
-			return ERROR;
-}
-
- /* Convert \c to c and compact two letter special chars  */
-<INSTRING>\\.|\\\n	{
-char c;
-if (yytext[1]=='b') c='\b';
-else if (yytext[1]=='t') c='\t';
-else if (yytext[1]=='n') c='\n';
-else if (yytext[1]=='f') c='\f';
-else if (yytext[1]=='\n') {c=yytext[1];curr_lineno++;}
-else c=yytext[1];
-text += c;
-}
-
  /* Match end of string  */
 <INSTRING>\" 		{
    BEGIN(INITIAL);
@@ -255,7 +211,43 @@ text += c;
    }
 }
 
+\"			{BEGIN(INSTRING);invalidStr=false;}
+
+<INSTRING>\n		{
+   curr_lineno++;
+   BEGIN(INITIAL);
+   yylval.error_msg="Unterminated string constant";
+   return ERROR;
+}
+
+ /* Convert \c to c and compact two letter special chars  */
+<INSTRING>\\.|\\\n	{
+   char c;
+   if (yytext[1]=='b') c='\b';
+   else if (yytext[1]=='t') c='\t';
+   else if (yytext[1]=='n') c='\n';
+   else if (yytext[1]=='f') c='\f';
+   else if (yytext[1]=='\n') {c=yytext[1];curr_lineno++;}
+   else c=yytext[1];
+   text += c;
+}
+
+<INSTRING>[\0]		{
+			cool_yylval.error_msg="String contains null character";
+			invalidStr=true;
+			return ERROR;
+}
+
+<INSTRING><<EOF>>	{BEGIN(INITIAL);cool_yylval.error_msg="EOF in string constant";return ERROR;}
+
 <INSTRING>.		{text += yytext;}
+
+<INSTRING>\n		{
+   curr_lineno++;
+   BEGIN(INITIAL);
+   yylval.error_msg="Unterminated string constant";
+   return ERROR;
+}
 
  /* All other unmatches characters result in an error */
 .			{cool_yylval.error_msg=yytext;return ERROR;}
