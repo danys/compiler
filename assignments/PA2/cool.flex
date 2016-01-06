@@ -67,6 +67,7 @@ UALPHA			  [A-Z]
 LALPHA			  [a-z]
 ALPHA			  {UALPHA}|{LALPHA}
 ALPHAUSCORE		  {ALPHA}|_
+ALPHANUMUSCORE		  {ALPHAUSCORE}|{DIGIT}
 CLASSp			  [cC][lL][aA][sS]{2}
 ELSEp			  [eE][lL][sS][eE]
 FALSEp			  f[aA][lL][sS][eE]
@@ -87,11 +88,11 @@ OFp			  [oO][fF]
 NOTp			  [nN][oO][tT]
 TRUEp			  t[rR][uU][eE]
 WHITESPACE		  [ \f\r\t\v\32]
-TYPEIDp			  {UALPHA}{ALPHAUSCORE}*
-OBJECTIDp		  {LALPHA}{ALPHAUSCORE}*
+TYPEIDp			  {UALPHA}{ALPHANUMUSCORE}*
+OBJECTIDp		  {LALPHA}{ALPHANUMUSCORE}*
 DOUBLEDASH		  --
 
-%x INCOMMENT INSTRING
+%x INCOMMENT INSTRING INONELINECOMMENT
 %%
 
 <INITIAL,INCOMMENT>\n	{curr_lineno++;}
@@ -99,7 +100,8 @@ DOUBLEDASH		  --
 {DIGIT}+		{cool_yylval.symbol=inttable.add_int(strtol(yytext,&yytext+yyleng,10));return INT_CONST;}
 
  /* Single line comments */
-{DOUBLEDASH}[^\n]*	{}
+{DOUBLEDASH}[^\n]*	 	{}
+
  /*
   *  Nested comments
   */
@@ -165,8 +167,8 @@ DOUBLEDASH		  --
 {OFp}			{return OF;}
 {NOTp}			{return NOT;}
 
-{TRUEp}			{cool_yylval.boolean=false;return BOOL_CONST;}
-{FALSEp}		{cool_yylval.boolean=true;return BOOL_CONST;}
+{TRUEp}			{cool_yylval.boolean=1;return BOOL_CONST;}
+{FALSEp}		{cool_yylval.boolean=0;return BOOL_CONST;}
 
 {TYPEIDp}		{cool_yylval.symbol=idtable.add_string(yytext,yyleng);return TYPEID;}
 {OBJECTIDp}		{cool_yylval.symbol=idtable.add_string(yytext,yyleng);return OBJECTID;}
@@ -232,7 +234,7 @@ DOUBLEDASH		  --
    text += c;
 }
 
-<INSTRING>[\0]		{
+<INSTRING>\0		{
 			cool_yylval.error_msg="String contains null character";
 			invalidStr=true;
 			return ERROR;
