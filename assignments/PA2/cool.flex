@@ -61,6 +61,7 @@ void setStringSymbol()
  */
 
 DARROWp		          =>
+LEp			  <=
 ARROWp			  <-
 DIGIT			  [0-9]
 UALPHA			  [A-Z] 
@@ -97,7 +98,7 @@ DOUBLEDASH		  --
 
 <INITIAL,INCOMMENT>\n	{curr_lineno++;}
 {WHITESPACE}		{}
-{DIGIT}+		{cool_yylval.symbol=inttable.add_int(strtol(yytext,&yytext+yyleng,10));return INT_CONST;}
+{DIGIT}+		{cool_yylval.symbol=inttable.add_string(yytext,yyleng);return INT_CONST;}
 
  /* Single line comments */
 {DOUBLEDASH}[^\n]*	 	{}
@@ -144,6 +145,7 @@ DOUBLEDASH		  --
   */
 {DARROWp}		{ return (DARROW); }
 {ARROWp}		{ return ASSIGN;}
+{LEp}			{ return LE;}
 
  /*
   * Keywords are case-insensitive except for the values true and false,
@@ -185,7 +187,7 @@ DOUBLEDASH		  --
 "{"			{return '{';}
 "}"			{return '}';}
 ";"			{return ';';}
-":"			{return ';';}
+":"			{return ':';}
 ","			{return ',';}
 "@"			{return '@';}
 "\."			{return '.';}
@@ -200,7 +202,7 @@ DOUBLEDASH		  --
  /* Match end of string  */
 <INSTRING>\" 		{
    BEGIN(INITIAL);
-   if (text.size()>MAX_STR_CONST){
+   if (text.size()>=MAX_STR_CONST){
       cool_yylval.error_msg="String constant too long";
       text.clear(); 
       return ERROR;
@@ -211,15 +213,24 @@ DOUBLEDASH		  --
 	text.clear();
 	return STR_CONST;
    }
+   else
+   {
+	cool_yylval.error_msg="String contains null character";
+	return ERROR;	
+   }
 }
 
-\"			{BEGIN(INSTRING);invalidStr=false;}
+\"			{BEGIN(INSTRING);invalidStr=false;text.clear();}
 
 <INSTRING>\n		{
    curr_lineno++;
    BEGIN(INITIAL);
-   yylval.error_msg="Unterminated string constant";
+   cool_yylval.error_msg="Unterminated string constant";
    return ERROR;
+}
+
+<INSTRING>\0		{
+			invalidStr=true;
 }
 
  /* Convert \c to c and compact two letter special chars  */
@@ -230,26 +241,14 @@ DOUBLEDASH		  --
    else if (yytext[1]=='n') c='\n';
    else if (yytext[1]=='f') c='\f';
    else if (yytext[1]=='\n') {c=yytext[1];curr_lineno++;}
+   else if (yytext[1]=='\0') {invalidStr=true;c='0';}
    else c=yytext[1];
    text += c;
-}
-
-<INSTRING>\0		{
-			cool_yylval.error_msg="String contains null character";
-			invalidStr=true;
-			return ERROR;
 }
 
 <INSTRING><<EOF>>	{BEGIN(INITIAL);cool_yylval.error_msg="EOF in string constant";return ERROR;}
 
 <INSTRING>.		{text += yytext;}
-
-<INSTRING>\n		{
-   curr_lineno++;
-   BEGIN(INITIAL);
-   yylval.error_msg="Unterminated string constant";
-   return ERROR;
-}
 
  /* All other unmatches characters result in an error */
 .			{cool_yylval.error_msg=yytext;return ERROR;}
