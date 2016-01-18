@@ -48,11 +48,6 @@ int counter=0;
 int nNestedComments=0;
 std::string text; //the string to record strings and comments
 bool invalidStr=false;
-void setStringSymbol()
-{
-	Entry* sEntry = new Entry(yytext,yyleng,counter++);
-	cool_yylval.symbol = sEntry;
-}
 
 %}
 
