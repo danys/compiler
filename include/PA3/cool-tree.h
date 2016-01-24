@@ -104,22 +104,22 @@ typedef list_node<Class_> Classes_class;
 typedef Classes_class *Classes;
 
 
-// define list phlyum - Features
+// define list phylum - Features
 typedef list_node<Feature> Features_class;
 typedef Features_class *Features;
 
 
-// define list phlyum - Formals
+// define list phylum - Formals
 typedef list_node<Formal> Formals_class;
 typedef Formals_class *Formals;
 
 
-// define list phlyum - Expressions
+// define list phylum - Expressions
 typedef list_node<Expression> Expressions_class;
 typedef Expressions_class *Expressions;
 
 
-// define list phlyum - Cases
+// define list phylum - Cases
 typedef list_node<Case> Cases_class;
 typedef Cases_class *Cases;
 
@@ -209,6 +209,9 @@ public:
       type_decl = a2;
       init = a3;
    }
+   Symbol getName(){return name;}
+   Symbol getTypeDecl(){return type_decl;}
+   Expression getInit(){return init;}
    Feature copy_Feature();
    void dump(ostream& stream, int n);
 
@@ -426,6 +429,25 @@ public:
 #endif
 };
 
+//Author: Dany
+//define constructor - parenthesis class: (Expression)
+class paren_class : public Expression_class {
+protected:
+  Expression exp;
+public:
+  paren_class(Expression e){
+    exp = e;
+  }
+  Expression copy_Expression();
+  void dump(ostream& stream, int n);
+
+#ifdef Expression_SHARED_EXTRAS
+ Expression_SHARED_EXTRAS
+#endif
+#ifdef paren_EXTRAS
+ paren_EXTRAS
+#endif
+};
 
 // define constructor - let
 class let_class : public Expression_class {
@@ -831,6 +853,7 @@ Expression new_(Symbol);
 Expression isvoid(Expression);
 Expression no_expr();
 Expression object(Symbol);
+Expression paren(Expression);
 
 
 #endif
