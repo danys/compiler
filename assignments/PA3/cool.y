@@ -140,10 +140,10 @@
     %type <expressions> expression_list
     %type <expression> expression
     %type <cases> case_list
-    %type <case> case
-    
-    /* You will want to change the following line. */
-    %type <features> dummy_feature_list
+    %type <case_> case_
+    %type <features> feat_list
+    %type <expressions> exp_list
+    %type <feature> feat
     
     /* Precedence declarations go here. */
     
@@ -165,18 +165,142 @@
     ;
     
     /* If no parent is specified, the class inherits from the Object class. */
-    class	: CLASS TYPEID '{' dummy_feature_list '}' ';'
+    class	: CLASS TYPEID '{' feature_list '}' ';'
     { $$ = class_($2,idtable.add_string("Object"),$4,
     stringtable.add_string(curr_filename)); }
-    | CLASS TYPEID INHERITS TYPEID '{' dummy_feature_list '}' ';'
+    | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' ';'
     { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
     ;
     
     /* Feature list may be empty, but no empty features in list. */
-    dummy_feature_list:		/* empty */
-    {  $$ = nil_Features(); }
+    feature_list
+    : {$$ = nil_Features();}
+    | feature ';'
+    { $$ = single_Features($1);}
+    | feature_list feature ';'
+    { $$ = append_Features($1,single_Features($2));}
+    ;
     
-    
+    feature
+    : OBJECTID '(' formal_list ')' ':' TYPEID '{' expression '}'
+    {$$ = method(idtable.add_string($1),$3,idtable.add_string($6),$8);}
+    | OBJECTID ':' TYPEID
+    {$$ = attr(idtable.add_string($1),idtable.add_string($3),new Expression_class());}
+    | OBJECTID ':' TYPEID ASSIGN expression
+    {$$ = attr(idtable.add_string($1),idtable.add_string($3),$5);}
+    ;
+
+    feat
+    : OBJECTID ':' TYPEID ASSIGN expression
+    {$$ = attr(idtable.add_string($1),idtable.add_string($3),$5)}
+    | OBJECTID ':' TYPEID
+    {$$ = attr(idtable.add_string($1),idtable.add_string($3),new Expression_class());}
+    ;
+
+    feat_list
+    : feat
+    {$$ = single_Features($1);}
+    | feat_list ',' feat
+    {$$ = append_Features($1,single_Features($2));}
+
+
+    formal_list
+    : formal
+    {$$ = single_Formals($1);}
+    | formal_list ',' formal
+    {$$ = append_Formals($1,single_Formals($3));}
+    ;
+
+    formal
+    : OBJECTID ':' TYPEID
+    {$$ = formal(idtable.add_string($1),idtable.add_string($3));}
+    ;
+
+    expression_list
+    : expression
+    {$$ = single_Expressions($1);}
+    | expression_list ',' expression
+    {$$ = append_Expressions($1,single_Expressions($3));}
+    ;
+
+    exp_list
+    : expression ';'
+    {$$ = single_Expressions($1);}
+    | exp_list expression ';'
+    {$$ = append_Expressions($1,single_Expressions($3));}
+
+    case_
+    : OBJECTID ':' TYPEID DARROW expression ';'
+    {$$ = branch(idtable.add_string($1),idtable.add_string($3),$5);}
+
+    case_list
+    : case_
+    {$$ = single_Cases($1);}
+    | case_list case_
+    {$$ = append_Cases($1,single_Cases($2));}
+
+    expression
+    : TYPEID ASSIGN expression
+    {$$ = assign(idtable.add_string($1),$3);}
+    | expression '@' TYPEID '.' OBJECTID '(' expression_list ')'
+    {$$ = static_dispatch($1,idtable.add_string($3),idtable.add_string($5),$7);}
+    | expression '.' OBJECTID '(' expression_list ')'
+    {$$ = static_dispatch($1,NULL,idtable_addstring($3),$5);}
+    | OBJECTID '(' expression_list ')'
+    {$$ = dispatch(object(idtable.add_string("self")),idtable.add_string($1),$3);}
+    | IF expression THEN expression ELSE expression FI
+    {$$ = cond($2,$4,$6);}
+    | WHILE expression LOOP expression POOL
+    {$$ = loop($2,$4);}
+    | '{' exp_list '}'
+    {$$ = block($2);}
+    | LET feat_list IN expression
+    { Features list = $1;
+      Expression lastExp;
+      for(int i=list->first();list->more(i);i=list->next(i))
+      {
+        Feature f = list->nth(i);
+        if (i==0) lastExp = let(f->getName(i),f->getTypeDecl(),f->getInit(),$4);
+        else lastExp = let(f->getName(i),f->getTypeDecl(),f->getInit(),lastExp);
+      }
+      $$ = lastExpression;
+    }
+    | CASE expression OF case_list ESAC
+    {$$ = typcase($1,$2);}
+    | NEW TYPEID
+    {$$ = new_(idtable.add_string($2));}
+    | ISVOID expression
+    {$$ = isvoid($2);}
+    | expression '+' expression
+    {$$ = plus($1,$3);}
+    | expression '-' expression
+    {$$ = sub($1,$3);}
+    | expression '*' expression
+    {$$ = mul($1,$3);}
+    | expression '/' expression
+    {$$ = divide($1,$3);}
+    | '~' expression
+    {$$ = neg($2);}
+    | expression '<' expression
+    {$$ = lt($1,$3);}
+    | expression LE expression
+    {$$ = leq($1,$3);}
+    | expression '=' expression
+    {$$ = eq($1,$3);}
+    | NOT expression
+    {$$ = comp($1,$3);}
+    | '(' expression ')'
+    {$$ = paren($1);}
+    | OBJECTID
+    {$$ = object(idtable.add_string($1));}
+    | INT_CONST
+    {$$ = int_const(inttable.add_string($1));}
+    | STR_CONST
+    {$$ = string_const(stringtable.add_string($1));}
+    | BOOL_CONST
+    {$$ = bool_const($1);}
+    ;
+
     /* end of grammar */
     %%
     
