@@ -257,10 +257,10 @@
     | LET feat_list IN expression
     { Features list = $1;
       Expression lastExp;
-      for(int i=list->first();list->more(i);i=list->next(i))
+      for(int i=list->len()-1;i>=0;i--)
       {
         Feature f = list->nth(i);
-        if (i==0) lastExp = let(f->getName(i),f->getTypeDecl(),f->getInit(),$4);
+        if (i==list->len()-1) lastExp = let(f->getName(i),f->getTypeDecl(),f->getInit(),$4);
         else lastExp = let(f->getName(i),f->getTypeDecl(),f->getInit(),lastExp);
       }
       $$ = lastExpression;
