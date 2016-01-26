@@ -183,25 +183,25 @@
     
     feature
     : OBJECTID '(' formal_list ')' ':' TYPEID '{' expression '}'
-    {$$ = method(idtable.add_string($1),$3,idtable.add_string($6),$8);}
+    {$$ = method($1,$3,$6,$8);}
     | OBJECTID ':' TYPEID
-    {$$ = attr(idtable.add_string($1),idtable.add_string($3),new Expression_class());}
+    {$$ = attr($1,$3,new Expression_class());}
     | OBJECTID ':' TYPEID ASSIGN expression
-    {$$ = attr(idtable.add_string($1),idtable.add_string($3),$5);}
+    {$$ = attr($1,$3,$5);}
     ;
 
     feat
     : OBJECTID ':' TYPEID ASSIGN expression
-    {$$ = attr(idtable.add_string($1),idtable.add_string($3),$5)}
+    {$$ = attr($1,idtable.add_string($3),$5)}
     | OBJECTID ':' TYPEID
-    {$$ = attr(idtable.add_string($1),idtable.add_string($3),new Expression_class());}
+    {$$ = attr($1,$3,new Expression_class());}
     ;
 
     feat_list
     : feat
     {$$ = single_Features($1);}
     | feat_list ',' feat
-    {$$ = append_Features($1,single_Features($2));}
+    {$$ = append_Features($1,single_Features($3));}
 
 
     formal_list
@@ -213,7 +213,7 @@
 
     formal
     : OBJECTID ':' TYPEID
-    {$$ = formal(idtable.add_string($1),idtable.add_string($3));}
+    {$$ = formal($1,$3);}
     ;
 
     expression_list
@@ -227,11 +227,11 @@
     : expression ';'
     {$$ = single_Expressions($1);}
     | exp_list expression ';'
-    {$$ = append_Expressions($1,single_Expressions($3));}
+    {$$ = append_Expressions($1,single_Expressions($2));}
 
     case_
     : OBJECTID ':' TYPEID DARROW expression ';'
-    {$$ = branch(idtable.add_string($1),idtable.add_string($3),$5);}
+    {$$ = branch($1,$3,$5);}
 
     case_list
     : case_
@@ -241,13 +241,13 @@
 
     expression
     : TYPEID ASSIGN expression
-    {$$ = assign(idtable.add_string($1),$3);}
+    {$$ = assign($1,$3);}
     | expression '@' TYPEID '.' OBJECTID '(' expression_list ')'
-    {$$ = static_dispatch($1,idtable.add_string($3),idtable.add_string($5),$7);}
+    {$$ = static_dispatch($1,$3,$5,$7);}
     | expression '.' OBJECTID '(' expression_list ')'
-    {$$ = static_dispatch($1,NULL,idtable_addstring($3),$5);}
+    {$$ = static_dispatch($1,NULL,$3,$5);}
     | OBJECTID '(' expression_list ')'
-    {$$ = dispatch(object(idtable.add_string("self")),idtable.add_string($1),$3);}
+    {$$ = dispatch(object(idtable.add_string("self")),$1,$3);}
     | IF expression THEN expression ELSE expression FI
     {$$ = cond($2,$4,$6);}
     | WHILE expression LOOP expression POOL
@@ -255,7 +255,7 @@
     | '{' exp_list '}'
     {$$ = block($2);}
     | LET feat_list IN expression
-    { Features list = $1;
+    { Features list = $2;
       Expression lastExp;
       for(int i=list->len()-1;i>=0;i--)
       {
@@ -263,12 +263,12 @@
         if (i==list->len()-1) lastExp = let(f->getName(i),f->getTypeDecl(),f->getInit(),$4);
         else lastExp = let(f->getName(i),f->getTypeDecl(),f->getInit(),lastExp);
       }
-      $$ = lastExpression;
+      $$ = lastExp;
     }
     | CASE expression OF case_list ESAC
-    {$$ = typcase($1,$2);}
+    {$$ = typcase($2,$4);}
     | NEW TYPEID
-    {$$ = new_(idtable.add_string($2));}
+    {$$ = new_($2);}
     | ISVOID expression
     {$$ = isvoid($2);}
     | expression '+' expression
@@ -288,15 +288,15 @@
     | expression '=' expression
     {$$ = eq($1,$3);}
     | NOT expression
-    {$$ = comp($1,$3);}
+    {$$ = comp($2);}
     | '(' expression ')'
-    {$$ = paren($1);}
+    {$$ = paren($2);}
     | OBJECTID
-    {$$ = object(idtable.add_string($1));}
+    {$$ = object($1);}
     | INT_CONST
-    {$$ = int_const(inttable.add_string($1));}
+    {$$ = int_const($1);}
     | STR_CONST
-    {$$ = string_const(stringtable.add_string($1));}
+    {$$ = string_const($1);}
     | BOOL_CONST
     {$$ = bool_const($1);}
     ;
