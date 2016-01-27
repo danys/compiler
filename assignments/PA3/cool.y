@@ -11,6 +11,7 @@
   
   extern char *curr_filename;
   
+  Expression defaultExpr(Symbol typeID);
   
   /* Locations */
   #define YYLTYPE int              /* the type of locations */
@@ -146,8 +147,12 @@
     %type <feature> feat
     
     /* Precedence declarations go here. */
+    %right ASSIGN
+    %nonassoc LE '<' '='
+    %left '+' '-'
+    %left '*' '/'
     
-    
+ 
     %%
     /* 
     Save the root of the abstract syntax tree in a global variable.
@@ -157,11 +162,19 @@
     
     class_list
     : class			/* single class */
-    { $$ = single_Classes($1);
+    { if ($1==NULL) $$=NULL;else $$ = single_Classes($1);
     parse_results = $$; }
     | class_list class	/* several classes */
-    { $$ = append_Classes($1,single_Classes($2)); 
-    parse_results = $$; }
+    {
+      if (($1!=NULL) && ($2!=NULL))
+      {
+	$$ = append_Classes($1,single_Classes($2));
+	parse_results = $$;
+      }
+      else if ($1!=NULL) $$ = $1;
+      else if ($2!=NULL) $$ = single_Classes($2);
+      else $$ = nil_Classes();
+    }
     ;
     
     /* If no parent is specified, the class inherits from the Object class. */
@@ -170,31 +183,46 @@
     stringtable.add_string(curr_filename)); }
     | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' ';'
     { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
+    | CLASS TYPEID '{' error '}' ';'
+    {yyclearin; $$ = NULL;}
+    | CLASS TYPEID INHERITS TYPEID '{' error '}' ';'
+    {yyclearin; $$ = NULL;}
+    | CLASS error '{' feature_list '}' ';'
+    {yyclearin; $$=NULL;}
+    | CLASS error '{' error '}' ';'
+    {yyclearin; $$ = NULL;}
     ;
     
     /* Feature list may be empty, but no empty features in list. */
     feature_list
     : {$$ = nil_Features();}
     | feature ';'
-    { $$ = single_Features($1);}
+    { if ($1==NULL) $$=NULL; else $$ = single_Features($1);}
     | feature_list feature ';'
-    { $$ = append_Features($1,single_Features($2));}
+    {
+      if (($1!=NULL) && ($2!=NULL))  $$ = append_Features($1,single_Features($2));
+      else if ($1!=NULL) $$ = $1;
+      else if ($2!=NULL) $$ = single_Features($2);
+      else $$ = NULL;
+    }
     ;
     
     feature
     : OBJECTID '(' formal_list ')' ':' TYPEID '{' expression '}'
     {$$ = method($1,$3,$6,$8);}
+    | OBJECTID '(' ')' ':' TYPEID '{' expression '}'
+    {$$ = method($1,nil_Formals(),$5,$7);}
     | OBJECTID ':' TYPEID
-    {$$ = attr($1,$3,new Expression_class());}
+    {$$ = attr($1,$3,defaultExpr($3));}
     | OBJECTID ':' TYPEID ASSIGN expression
     {$$ = attr($1,$3,$5);}
     ;
 
     feat
     : OBJECTID ':' TYPEID ASSIGN expression
-    {$$ = attr($1,idtable.add_string($3),$5)}
+    {$$ = attr($1,$3,$5);}
     | OBJECTID ':' TYPEID
-    {$$ = attr($1,$3,new Expression_class());}
+    {$$ = attr($1,$3,no_expr());}
     ;
 
     feat_list
@@ -217,7 +245,8 @@
     ;
 
     expression_list
-    : expression
+    : {$$ = nil_Expressions();}
+    | expression
     {$$ = single_Expressions($1);}
     | expression_list ',' expression
     {$$ = append_Expressions($1,single_Expressions($3));}
@@ -228,6 +257,10 @@
     {$$ = single_Expressions($1);}
     | exp_list expression ';'
     {$$ = append_Expressions($1,single_Expressions($2));}
+    | exp_list error ';'
+    {$$ = $1;}
+    | error expression ';'
+    {$$ = single_Expressions($2);}
 
     case_
     : OBJECTID ':' TYPEID DARROW expression ';'
@@ -240,7 +273,7 @@
     {$$ = append_Cases($1,single_Cases($2));}
 
     expression
-    : TYPEID ASSIGN expression
+    : OBJECTID ASSIGN expression
     {$$ = assign($1,$3);}
     | expression '@' TYPEID '.' OBJECTID '(' expression_list ')'
     {$$ = static_dispatch($1,$3,$5,$7);}
@@ -256,12 +289,13 @@
     {$$ = block($2);}
     | LET feat_list IN expression
     { Features list = $2;
-      Expression lastExp;
+      Expression_class* lastExp;
       for(int i=list->len()-1;i>=0;i--)
       {
-        Feature f = list->nth(i);
-        if (i==list->len()-1) lastExp = let(f->getName(i),f->getTypeDecl(),f->getInit(),$4);
-        else lastExp = let(f->getName(i),f->getTypeDecl(),f->getInit(),lastExp);
+        Feature feat = list->nth(i);
+        attr_class* f = dynamic_cast<attr_class*>(feat);
+        if (i==list->len()-1) lastExp = let(f->getName(),f->getTypeDecl(),f->getInit(),$4);
+        else lastExp = let(f->getName(),f->getTypeDecl(),f->getInit(),lastExp);
       }
       $$ = lastExp;
     }
@@ -290,7 +324,7 @@
     | NOT expression
     {$$ = comp($2);}
     | '(' expression ')'
-    {$$ = paren($2);}
+      {$$ = $2;}
     | OBJECTID
     {$$ = object($1);}
     | INT_CONST
@@ -304,6 +338,14 @@
     /* end of grammar */
     %%
     
+    Expression defaultExpr(Symbol typeID)
+    {
+      if (typeID->equal_string("BOOL_CONST",10)) return bool_const(false);
+      else if (typeID->equal_string("INT_CONST",9)) return int_const(inttable.add_string("0"));
+      else if (typeID->equal_string("STR_CONST",9)) return string_const(stringtable.add_string(""));
+      else return no_expr();
+    }
+
     /* This function is called automatically when Bison detects a parse error. */
     void yyerror(char *s)
     {
