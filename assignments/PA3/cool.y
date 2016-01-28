@@ -148,10 +148,12 @@
     
     /* Precedence declarations go here. */
     %right ASSIGN
+    %left NOT
     %nonassoc LE '<' '='
     %left '+' '-'
     %left '*' '/'
-    
+    %left ISVOID
+    %left '~'
  
     %%
     /* 
@@ -162,19 +164,17 @@
     
     class_list
     : class			/* single class */
-    { if ($1==NULL) $$=NULL;else $$ = single_Classes($1);
+    { $$ = single_Classes($1);
     parse_results = $$; }
     | class_list class	/* several classes */
     {
-      if (($1!=NULL) && ($2!=NULL))
-      {
 	$$ = append_Classes($1,single_Classes($2));
 	parse_results = $$;
-      }
-      else if ($1!=NULL) $$ = $1;
-      else if ($2!=NULL) $$ = single_Classes($2);
-      else $$ = nil_Classes();
     }
+    | error class
+    {$$ = single_Classes($2);}
+    | class_list error
+    {$$ = $1;}
     ;
     
     /* If no parent is specified, the class inherits from the Object class. */
@@ -183,14 +183,6 @@
     stringtable.add_string(curr_filename)); }
     | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' ';'
     { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
-    | CLASS TYPEID '{' error '}' ';'
-    {yyclearin; $$ = NULL;}
-    | CLASS TYPEID INHERITS TYPEID '{' error '}' ';'
-    {yyclearin; $$ = NULL;}
-    | CLASS error '{' feature_list '}' ';'
-    {yyclearin; $$=NULL;}
-    | CLASS error '{' error '}' ';'
-    {yyclearin; $$ = NULL;}
     ;
     
     /* Feature list may be empty, but no empty features in list. */
@@ -198,6 +190,8 @@
     : {$$ = nil_Features();}
     | feature ';'
     { if ($1==NULL) $$=NULL; else $$ = single_Features($1);}
+    | feature
+    {$$ = NULL;}
     | feature_list feature ';'
     {
       if (($1!=NULL) && ($2!=NULL))  $$ = append_Features($1,single_Features($2));
@@ -205,6 +199,10 @@
       else if ($2!=NULL) $$ = single_Features($2);
       else $$ = NULL;
     }
+    | error feature ';'
+    {$$ = single_Features($2);}
+    | feature_list error ';'
+    {$$ = $1;}
     ;
     
     feature
@@ -216,6 +214,14 @@
     {$$ = attr($1,$3,defaultExpr($3));}
     | OBJECTID ':' TYPEID ASSIGN expression
     {$$ = attr($1,$3,$5);}
+    | OBJECTID ':' error
+    {$$ = NULL;}
+    | OBJECTID '(' ')' ':' TYPEID '{' error '}'
+    {$$ = NULL;}
+    | OBJECTID '(' formal_list ')' ':' TYPEID '{' error '}'
+    {$$ = NULL;}
+    | error '(' formal_list ')' ':' TYPEID '{' expression '}'
+    {$$ = NULL;}
     ;
 
     feat
@@ -223,6 +229,10 @@
     {$$ = attr($1,$3,$5);}
     | OBJECTID ':' TYPEID
     {$$ = attr($1,$3,no_expr());}
+    | error ':' TYPEID
+    {$$ = NULL;}
+    | OBJECTID ':' error
+    {$$ = NULL;}
     ;
 
     feat_list
@@ -230,6 +240,12 @@
     {$$ = single_Features($1);}
     | feat_list ',' feat
     {$$ = append_Features($1,single_Features($3));}
+    | error
+    {$$ = nil_Features();}
+    | feat_list ',' error
+    {$$ = $1;}
+    | error ',' feat
+    {$$ = single_Features($3);}
 
 
     formal_list
@@ -278,7 +294,7 @@
     | expression '@' TYPEID '.' OBJECTID '(' expression_list ')'
     {$$ = static_dispatch($1,$3,$5,$7);}
     | expression '.' OBJECTID '(' expression_list ')'
-    {$$ = static_dispatch($1,NULL,$3,$5);}
+    {$$ = dispatch($1,$3,$5);}
     | OBJECTID '(' expression_list ')'
     {$$ = dispatch(object(idtable.add_string("self")),$1,$3);}
     | IF expression THEN expression ELSE expression FI
