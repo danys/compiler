@@ -5,7 +5,9 @@
 #include <stdarg.h>
 #include "semant.h"
 #include "utilities.h"
-
+#include <vector>
+#include <unordered_map>
+#include <string>
 
 extern int semant_debug;
 extern char *curr_filename;
@@ -84,14 +86,72 @@ static void initialize_constants(void)
 
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
-  //Iterate through the classes and build a dependency graph
+  //Iterate through the classes to build the dependency graph
+  int intId=0,classId,parentId; //unique id to assign to every class
+  std::unordered_map<std::string,int> classMap;
+  vector<vector<int>> classGraph;
+  //Initialize empty graph
+  for(int i=0;i<classes->len();i++)
+  {
+    vector<int> v;
+    classGraph.push_back(v);
+  }
   for(int i=classes->first();classes->more(i);i=classes->next(i))
   {
-    //
+    //Extract the class name and parent from each class
+    Class_ classPointer = classes->nth(i);
+    class__class* classInfoPointer =  dynamic_cast<class__class*>(classPointer);
+    Symbol classNameS = classInfoPointer->get_name();
+    Symbol classParentS = classInfoPointer->get_parent();
+    char* className = classNameS->get_string();
+    int classNameLen = classNameS->get_len();
+    char* classParent = classParentS->get_string();
+    int classParentLen = classParentS->get_len();
+    std::string classNameStr(className,classNameLen);
+    std::string classParentStr(classParent,classParentLen);
+    //Insert the class name and the parent's name into a hash table if they are not yet present
+    std::unordered_map<std::string,int>::const_iterator mapit = classMap.find(classNameStr);
+    if (mapit == classMap.end())
+    {
+      //key not found => insert key-value pair of class name
+      classMap.insert (std::make_pair<std::string,double>(classNameStr,intId));
+      classId = intId;
+      intId++;
+    }
+    else classId = mapit->second;
+    mapit = classMap.find(classParentStr);
+    if (mapit == classMap.end())
+    {
+      //key not found => insert key-value pair of parent class name
+      classMap.insert (std::make_pair<std::string,double>(classParentStr,intId));
+      parentId = intId;
+      intId++;
+    }
+    else parentId = mapit->second;
+    //Ids for the class and its parent are in classId and in parentId
+    //Insert parentId->classId branch in directed graph
+    vector<int> v = classGraph[parentId];
+    //Check whether the branch exist already in the graph
+    bool found=false;
+    for(int j=0;j<v.size();j++)
+    {
+      if (v[j]==classId)
+      {
+	found=true;
+	break;
+      }
+    }
+    if (!found) //if not found insert the branch
+    {
+      v.push_back(classId);
+      classGraph[parentId] = v;
+    }
   }
+  //Check if the graph has cycles
+  //TODO
 }
 
-void ClassTable::install_basic_classes() {
+Classes ClassTable::install_basic_classes() {
 
     // The tree package uses these globals to annotate the classes built below.
    // curr_lineno  = 0;
@@ -190,6 +250,12 @@ void ClassTable::install_basic_classes() {
 						      Str, 
 						      no_expr()))),
 	       filename);
+    Classes basicClasses = single_Classes(Object_class);
+    basicClasses = append_Classes(basicClasses,single_Classes(IO_class));
+    basicClasses = append_Classes(basicClasses,single_Classes(Int_class));
+    basicClasses = append_Classes(basicClasses,single_Classes(Bool_class));
+    basicClasses = append_Classes(basicClasses,single_Classes(Str_class));
+    return basicClasses;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -242,7 +308,8 @@ ostream& ClassTable::semant_error()
 void program_class::semant()
 {
     initialize_constants();
-
+    Classes basicClasses = install_basic_classes();
+    classes = append_Classes(basicClasses,classes);
     /* ClassTable constructor may do some semantic analysis */
     ClassTable *classtable = new ClassTable(classes);
 
