@@ -52,13 +52,16 @@
 class tree_node {
 protected:
     int line_number;            // stash the line number when node is made
+    Symbol type;
 public:
-    tree_node();
+    tree_node(){type = NULL};
     virtual tree_node *copy() = 0;
     virtual ~tree_node() { }
     virtual void dump(ostream& stream, int n) = 0;
     int get_line_number();
     tree_node *set(tree_node *);
+    Symbol get_type();
+    void set_type(Symbol s){type = s;}
 };
 
 ///////////////////////////////////////////////////////////////////
