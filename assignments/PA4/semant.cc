@@ -5,9 +5,6 @@
 #include <stdarg.h>
 #include "semant.h"
 #include "utilities.h"
-#include <vector>
-#include <unordered_map>
-#include <string>
 
 extern int semant_debug;
 extern char *curr_filename;
@@ -83,13 +80,89 @@ static void initialize_constants(void)
     val         = idtable.add_string("_val");
 }
 
-
+//Kahn's algorithm
+bool ClassTable::isDAG(int intId)
+{
+  vector<int> noinc; //set of vertices with no incoming edges
+  for(int i=0;i<intId;i++) noinc.push_back(i);
+  vector<int> v;
+  int nodeId;
+  //Loop through the nodes
+  for(int i=0;i<intId;i++)
+  {
+    v = classGraph[i];
+    //Loop through this node's edges
+    for(int j=0;j<v.size();j++)
+    {
+      nodeId = v[j];
+      //nodeId has at least one incoming edge => remove it from noinc
+      for(int k=0;k<noinc.size();k++)
+      {
+	if (noinc[k]==nodeId)
+	{
+	  noinc.erase(noinc.begin()+k);
+	  break;
+	}
+      }
+    }
+  }
+  //Clone classGraph
+  vector<vector<int> > classGraphCopy;
+  for(int i=0;i<intId;i++)
+  {
+    vector<int> vals;
+    classGraphCopy.push_back(vals);
+  }
+  vector<int> originalVect;
+  // fill in classGraphCopy
+  for(int i=0;i<intId;i++)
+  {
+    originalVect = classGraph[i];
+    vector<int> copyVect(originalVect);
+    classGraphCopy[i]=copyVect;
+  }
+  vector<int> endpoints;
+  vector<int> vect;
+  int nextNode;
+  bool found;
+  while(noinc.size()>0)
+  {
+    nodeId = noinc[0];
+    noinc.erase(noinc.begin());
+    endpoints = classGraphCopy[nodeId];
+    //Loop through all the next nodes
+    for(int i=0;i<endpoints.size();i++)
+    {
+      nextNode = endpoints[i];
+      found=false;
+      //check if nextNode has no further incoming edges
+      for(int j=0;(j<intInd) && (j!=nodeId);j++)
+      {
+	vect = classGraphCopy[j];
+	for(int k=0;k<vect.size();k++)
+	{
+	  if (vect[k]==nextNode)
+	  {
+	    found=true;
+	    break;
+	  }
+	}
+	if (!found) noinc.push_back(nextNode);
+      }
+    }
+    //remove all next node edges
+    endpoints.clear();
+    classGraphCopy[nodeId]=endpoints;
+  }
+  //Check whether the cloned graph is now empty
+  int nNodes=0;
+  for(int i=0;i<intId;i++) nNodes += classGraphCopy[i].size();
+  return (nNodes==0);
+}
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
   //Iterate through the classes to build the dependency graph
   int intId=0,classId,parentId; //unique id to assign to every class
-  std::unordered_map<std::string,int> classMap;
-  vector<vector<int>> classGraph;
   //Initialize empty graph
   for(int i=0;i<classes->len();i++)
   {
@@ -148,7 +221,13 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     }
   }
   //Check if the graph has cycles
-  //TODO
+  //Topological sort
+  bool isOK = isDAG(intId);
+  if (!isOK)
+  {
+    semant_error(dynamic_cast<class__class*>(classes->nth(0)));
+    cerr << error_stream << endl;
+  }
 }
 
 Classes ClassTable::install_basic_classes() {
