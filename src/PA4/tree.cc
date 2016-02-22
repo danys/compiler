@@ -28,6 +28,7 @@ int node_lineno = 1;
 tree_node::tree_node()
 {
     line_number = node_lineno;
+    type = NULL;
 }
 
 ///////////////////////////////////////////////////////////////////////////

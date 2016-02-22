@@ -54,7 +54,7 @@ protected:
     int line_number;            // stash the line number when node is made
     Symbol type;
 public:
-    tree_node(){type = NULL};
+    tree_node();
     virtual tree_node *copy() = 0;
     virtual ~tree_node() { }
     virtual void dump(ostream& stream, int n) = 0;
