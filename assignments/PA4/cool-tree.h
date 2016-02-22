@@ -164,7 +164,7 @@ public:
    Symbol get_name(){return name;}
    Symbol get_parent(){return parent;}
    Features get_features(){return features;}
-   Symbol get_filename(){return filename;}
+   /*Symbol get_filename(){return filename;}*/
 
 #ifdef Class__SHARED_EXTRAS
    Class__SHARED_EXTRAS
