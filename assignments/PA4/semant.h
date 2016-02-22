@@ -8,7 +8,6 @@
 #include "symtab.h"
 #include "list.h"
 #include <vector>
-#include <unordered_map>
 #include <string>
 
 #define TRUE 1
@@ -25,10 +24,10 @@ typedef ClassTable *ClassTableP;
 class ClassTable {
 private:
   int semant_errors;
-  void install_basic_classes();
+  int findClassNameInList(std::string className);
   ostream& error_stream;
-  vector<vector<int> > classGraph;
-  std::unordered_map<std::string,int> classMap;
+  std::vector<std::vector<int> > classGraph;
+  std::vector<std::string> classesList;
   bool isDAG(int intId);
 
 public:
