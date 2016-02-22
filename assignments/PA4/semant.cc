@@ -83,20 +83,20 @@ static void initialize_constants(void)
 //Kahn's algorithm
 bool ClassTable::isDAG(int intId)
 {
-  vector<int> noinc; //set of vertices with no incoming edges
+  std::vector<int> noinc; //set of vertices with no incoming edges
   for(int i=0;i<intId;i++) noinc.push_back(i);
-  vector<int> v;
+  std::vector<int> v;
   int nodeId;
   //Loop through the nodes
   for(int i=0;i<intId;i++)
   {
     v = classGraph[i];
     //Loop through this node's edges
-    for(int j=0;j<v.size();j++)
+    for(unsigned int j=0;j<v.size();j++)
     {
       nodeId = v[j];
       //nodeId has at least one incoming edge => remove it from noinc
-      for(int k=0;k<noinc.size();k++)
+      for(unsigned int k=0;k<noinc.size();k++)
       {
 	if (noinc[k]==nodeId)
 	{
@@ -107,22 +107,22 @@ bool ClassTable::isDAG(int intId)
     }
   }
   //Clone classGraph
-  vector<vector<int> > classGraphCopy;
+  std::vector<std::vector<int> > classGraphCopy;
   for(int i=0;i<intId;i++)
   {
-    vector<int> vals;
+    std::vector<int> vals;
     classGraphCopy.push_back(vals);
   }
-  vector<int> originalVect;
+  std::vector<int> originalVect;
   // fill in classGraphCopy
   for(int i=0;i<intId;i++)
   {
     originalVect = classGraph[i];
-    vector<int> copyVect(originalVect);
+    std::vector<int> copyVect(originalVect);
     classGraphCopy[i]=copyVect;
   }
-  vector<int> endpoints;
-  vector<int> vect;
+  std::vector<int> endpoints;
+  std::vector<int> vect;
   int nextNode;
   bool found;
   while(noinc.size()>0)
@@ -131,15 +131,15 @@ bool ClassTable::isDAG(int intId)
     noinc.erase(noinc.begin());
     endpoints = classGraphCopy[nodeId];
     //Loop through all the next nodes
-    for(int i=0;i<endpoints.size();i++)
+    for(unsigned int i=0;i<endpoints.size();i++)
     {
       nextNode = endpoints[i];
       found=false;
       //check if nextNode has no further incoming edges
-      for(int j=0;(j<intInd) && (j!=nodeId);j++)
+      for(int j=0;(j<intId) && (j!=nodeId);j++)
       {
 	vect = classGraphCopy[j];
-	for(int k=0;k<vect.size();k++)
+	for(unsigned int k=0;k<vect.size();k++)
 	{
 	  if (vect[k]==nextNode)
 	  {
@@ -160,13 +160,20 @@ bool ClassTable::isDAG(int intId)
   return (nNodes==0);
 }
 
+//No hash table support before C++11 resort to simple array and slower O(N) access
+int ClassTable::findClassNameInList(std::string className)
+{
+  for(unsigned int i=0;i<classesList.size();i++) if (classesList[i].compare(className)==0) return i;
+  return -1;
+}
+
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
   //Iterate through the classes to build the dependency graph
-  int intId=0,classId,parentId; //unique id to assign to every class
+  int intId=0,classId,parentId,tempId; //unique id to assign to every class
   //Initialize empty graph
   for(int i=0;i<classes->len();i++)
   {
-    vector<int> v;
+    std::vector<int> v;
     classGraph.push_back(v);
   }
   for(int i=classes->first();classes->more(i);i=classes->next(i))
@@ -183,30 +190,28 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     std::string classNameStr(className,classNameLen);
     std::string classParentStr(classParent,classParentLen);
     //Insert the class name and the parent's name into a hash table if they are not yet present
-    std::unordered_map<std::string,int>::const_iterator mapit = classMap.find(classNameStr);
-    if (mapit == classMap.end())
+    tempId = findClassNameInList(classNameStr);
+    if (tempId==-1)//key not found => insert key-value pair of class name
     {
-      //key not found => insert key-value pair of class name
-      classMap.insert (std::make_pair<std::string,double>(classNameStr,intId));
-      classId = intId;
+      classId = classesList.size();
+      classesList.push_back(classNameStr);
       intId++;
     }
-    else classId = mapit->second;
-    mapit = classMap.find(classParentStr);
-    if (mapit == classMap.end())
+    else classId = tempId;
+    tempId = findClassNameInList(classParentStr);
+    if (tempId==-1)//key not found => insert key-value pair of parent class name
     {
-      //key not found => insert key-value pair of parent class name
-      classMap.insert (std::make_pair<std::string,double>(classParentStr,intId));
-      parentId = intId;
+      parentId = classesList.size();
+      classesList.push_back(classParentStr);
       intId++;
     }
-    else parentId = mapit->second;
+    else parentId = tempId;
     //Ids for the class and its parent are in classId and in parentId
     //Insert parentId->classId branch in directed graph
-    vector<int> v = classGraph[parentId];
+    std::vector<int> v = classGraph[parentId];
     //Check whether the branch exist already in the graph
     bool found=false;
-    for(int j=0;j<v.size();j++)
+    for(unsigned int j=0;j<v.size();j++)
     {
       if (v[j]==classId)
       {
@@ -230,7 +235,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
   }
 }
 
-Classes ClassTable::install_basic_classes() {
+Classes install_basic_classes() {
 
     // The tree package uses these globals to annotate the classes built below.
    // curr_lineno  = 0;
