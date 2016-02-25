@@ -106,6 +106,7 @@ bool ClassTable::isDAG(int intId)
       }
     }
   }
+  if (noinc.size()>1) return false; //the DAG should exactly have one root only
   //Clone classGraph
   std::vector<std::vector<int> > classGraphCopy;
   for(int i=0;i<intId;i++)
