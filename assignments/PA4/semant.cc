@@ -106,7 +106,7 @@ bool ClassTable::isDAG(int intId)
       }
     }
   }
-  if (noinc.size()>1) return false; //the DAG should exactly have one root only
+  if (noinc.size()>1) return false; //the DAG should have exactly one root node only
   //Clone classGraph
   std::vector<std::vector<int> > classGraphCopy;
   for(int i=0;i<intId;i++)
@@ -162,24 +162,52 @@ bool ClassTable::isDAG(int intId)
 }
 
 //No hash table support before C++11 resort to simple array and slower O(N) access
-int ClassTable::findClassNameInList(std::string className)
+int ClassTable::findClassNameInList(std::string className,std::vector<std::string> &list)
 {
-  for(unsigned int i=0;i<classesList.size();i++) if (classesList[i].compare(className)==0) return i;
+  for(unsigned int i=0;i<list.size();i++) if (list[i].compare(className)==0) return i;
   return -1;
+}
+
+//Check if attributes are redefined a classe's subclasses
+bool ClassTable::redefinedAttributes(int nodeId, std::vector<attr_class*> attrList)
+{
+  //Check if this node's attributes redefine attributes of attrList
+  class_class* curClass = classesVect[nodeId];
+  Features features = curClass->get_features();
+  for(int i=features->first();features->more(i);i=features->next(i))
+  {
+    Feature feature = features->nth(i);
+    if (feature->getNodeType()==1) continue; //this is a method definition => of no interest
+    attr_class* attrib = dynamic_cast<attr_class*>(classPointer);
+    //check if this attribute is in attrList already
+    for(int j=0;j<attrList.size();j++)
+    {
+      Symbol curName = attrList[j].name;
+      if (curName->equal_string(attrib->getName()->get_string(),attrib->getName()->get_len())==0) return true;
+    }
+    //Add this node's attributes to the attrList
+    attrList.push_back(attrib);
+  }
+  //DFS recursion
+  //TODO go through children of curClass with the help of classGraph
+  //for(int i=firstChild;i<lastChild;i++)
+  //{ if redefinedAttributes(i,attrList) return true;}
+  //return false;
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
   //Iterate through the classes to build the dependency graph
-  int intId=0,classId,parentId,tempId; //unique id to assign to every class
+  int /*intId=0,*/classId,parentId,tempId,pvectId; //unique id to assign to every class
   //Initialize empty graph
   for(int i=0;i<classes->len();i++)
   {
     std::vector<int> v;
     classGraph.push_back(v);
   }
+  classesVect.resize(classes->len());
   for(int i=classes->first();classes->more(i);i=classes->next(i))
   {
-    //Extract the class name and parent from each class
+    //Extract the class name and parent class name from each class
     Class_ classPointer = classes->nth(i);
     class__class* classInfoPointer =  dynamic_cast<class__class*>(classPointer);
     Symbol classNameS = classInfoPointer->get_name();
@@ -191,26 +219,49 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     std::string classNameStr(className,classNameLen);
     std::string classParentStr(classParent,classParentLen);
     //Insert the class name and the parent's name into a hash table if they are not yet present
-    tempId = findClassNameInList(classNameStr);
+    //Insert the class name
+    tempId = findClassNameInList(classNameStr,classesList);
     if (tempId==-1)//key not found => insert key-value pair of class name
     {
       classId = classesList.size();
       classesList.push_back(classNameStr);
-      intId++;
+      //intId++;
+      classesVect.push_back(classInfoPointer);
+      //check if this is the root node "Object"
+      if (classNameS->equal_string("Object",6)==0) rootId = tempId;
     }
-    else classId = tempId;
-    tempId = findClassNameInList(classParentStr);
+    else
+    {
+      pvectId = findClassNameInList(classNameStr,parentClasses);
+      if (pvectId==-1)
+      {
+	//Classes may not be redefined
+	semant_error(classInfoPointer);
+	cerr << error_stream << endl;
+	break;
+      }
+      else
+      {
+	//Parent class name encountered earlier
+	classesVect[tempId]=classInfoPointer;
+	//check if this is the root node "Object"
+	if (classNameS->equal_string("Object",6)==0) rootId = tempId;
+      }
+    }
+    //Insert the parent class name
+    tempId = findClassNameInList(classParentStr,classesList);
     if (tempId==-1)//key not found => insert key-value pair of parent class name
     {
       parentId = classesList.size();
       classesList.push_back(classParentStr);
-      intId++;
+      parentClasses.push_back(classParentStr);
+      //intId++;
     }
     else parentId = tempId;
     //Ids for the class and its parent are in classId and in parentId
     //Insert parentId->classId branch in directed graph
     std::vector<int> v = classGraph[parentId];
-    //Check whether the branch exist already in the graph
+    //Check whether the branch exists already in the graph
     bool found=false;
     for(unsigned int j=0;j<v.size();j++)
     {
@@ -226,13 +277,26 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
       classGraph[parentId] = v;
     }
   }
-  //Check if the graph has cycles
-  //Topological sort
-  bool isOK = isDAG(intId);
-  if (!isOK)
+  if (semant_errors==0)
   {
-    semant_error(dynamic_cast<class__class*>(classes->nth(0)));
-    cerr << error_stream << endl;
+    //Check if the graph has cycles
+    //Topological sort
+    bool isOK = isDAG(classesList.size());
+    if (!isOK)
+    {
+      semant_error(dynamic_cast<class__class*>(classes->nth(0)));
+      cerr << error_stream << endl;
+    }
+    else
+    {
+      //Check that no attributes are redefined in subclasses
+      std::vector<attr_class*> attrList;
+      if (redefinedAttributes(rootId))
+      {
+	semant_error(dynamic_cast<class__class*>(classes->nth(0)));
+	cerr << error_stream << endl;
+      }
+    }
   }
 }
 

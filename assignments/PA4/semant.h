@@ -24,11 +24,15 @@ typedef ClassTable *ClassTableP;
 class ClassTable {
 private:
   int semant_errors;
-  int findClassNameInList(std::string className);
+  int findClassNameInList(std::string className,std::vector<std::string> &list);
   ostream& error_stream;
   std::vector<std::vector<int> > classGraph;
+  int rootId;
   std::vector<std::string> classesList;
+  std::vector<class__class*> classesVect;
+  std::vector<std::string> parentClasses;
   bool isDAG(int intId);
+  bool redefinedAttributes(int nodeId, std::vector<attr_class*> attrList);
 
 public:
   ClassTable(Classes);
