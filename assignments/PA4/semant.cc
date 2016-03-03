@@ -172,27 +172,26 @@ int ClassTable::findClassNameInList(std::string className,std::vector<std::strin
 bool ClassTable::redefinedAttributes(int nodeId, std::vector<attr_class*> attrList)
 {
   //Check if this node's attributes redefine attributes of attrList
-  class_class* curClass = classesVect[nodeId];
+  class__class* curClass = classesVect[nodeId];
   Features features = curClass->get_features();
   for(int i=features->first();features->more(i);i=features->next(i))
   {
     Feature feature = features->nth(i);
     if (feature->getNodeType()==1) continue; //this is a method definition => of no interest
-    attr_class* attrib = dynamic_cast<attr_class*>(classPointer);
+    attr_class* attrib = dynamic_cast<attr_class*>(feature);
     //check if this attribute is in attrList already
-    for(int j=0;j<attrList.size();j++)
+    for(unsigned int j=0;j<attrList.size();j++)
     {
-      Symbol curName = attrList[j].name;
+      Symbol curName = attrList[j]->getName();
       if (curName->equal_string(attrib->getName()->get_string(),attrib->getName()->get_len())==0) return true;
     }
     //Add this node's attributes to the attrList
     attrList.push_back(attrib);
   }
   //DFS recursion
-  //TODO go through children of curClass with the help of classGraph
-  //for(int i=firstChild;i<lastChild;i++)
-  //{ if redefinedAttributes(i,attrList) return true;}
-  //return false;
+  std::vector<int> children = classGraph[nodeId];
+  for(unsigned int i=0;i<children.size();i++) if (redefinedAttributes(children[i],attrList)) return true;
+  return false;
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
@@ -291,7 +290,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     {
       //Check that no attributes are redefined in subclasses
       std::vector<attr_class*> attrList;
-      if (redefinedAttributes(rootId))
+      if (redefinedAttributes(rootId,attrList))
       {
 	semant_error(dynamic_cast<class__class*>(classes->nth(0)));
 	cerr << error_stream << endl;
