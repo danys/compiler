@@ -165,7 +165,7 @@ public:
    Symbol get_name(){return name;}
    Symbol get_parent(){return parent;}
    Features get_features(){return features;}
-
+   virtual void collectTypes();
 
 #ifdef Class__SHARED_EXTRAS
    Class__SHARED_EXTRAS
@@ -193,6 +193,7 @@ public:
    Feature copy_Feature();
    void dump(ostream& stream, int n);
    int getNodeType() {return 1;}
+   virtual void collectTypes();
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -219,6 +220,7 @@ public:
    void dump(ostream& stream, int n);
    int getNodeType() {return 2;}
    Symbol getName(){return name;}
+   virtual void collectTypes();
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -241,6 +243,7 @@ public:
    }
    Formal copy_Formal();
    void dump(ostream& stream, int n);
+   virtual void collectTypes();
 
 #ifdef Formal_SHARED_EXTRAS
    Formal_SHARED_EXTRAS
@@ -265,6 +268,7 @@ public:
    }
    Case copy_Case();
    void dump(ostream& stream, int n);
+   virtual void collectTypes();
 
 #ifdef Case_SHARED_EXTRAS
    Case_SHARED_EXTRAS
@@ -451,6 +455,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes();
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
