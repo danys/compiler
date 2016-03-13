@@ -438,7 +438,44 @@ ostream& ClassTable::semant_error()
     return error_stream;
 } 
 
+void let_class::collectTypes()
+{
+  objectEnv->addid(identifier,type_decl);
+}
 
+void branch_class::collectTypes()
+{
+  objectEnv->addid(name,type_decl);
+}
+
+void formal_class::collectTypes()
+{
+  objectEnv->addid(name,type_decl);
+}
+
+void attr_class::collectTypes()
+{
+  objectEnv->addid(name,type_decl);
+}
+
+void method_class::collectTypes()
+{
+  //loop over formals
+}
+
+void class__class::collectTypes()
+{
+  classEnv.push_back(idtable.add_string(name));
+  for(int i = features->first(); features->more(i); i = features->next(i))
+  {
+    methodEnv->enterscope();
+    objectEnv->enterscope();
+    features->nth(i)->collectTypes();
+    objectEnv->exitscope();
+    methodEnv->exitscope();
+  }
+    
+}
 
 /*   This is the entry point to the semantic checker.
 
@@ -461,12 +498,18 @@ void program_class::semant()
     /* ClassTable constructor may do some semantic analysis */
     ClassTable *classtable = new ClassTable(classes);
 
-    /* some semantic analysis code may go here */
+    //DFS traversal through AST and gather all object names
+    for(int i = classes->first(); classes->more(i); i = classes->next(i))
+    {
+      methodEnv->enterscope();
+      objectEnv->enterscope();
+      classes->nth(i)->collectTypes();
+      methodEnv->exitscope();
+      objectEnv->exitscope();
+    }
 
     if (classtable->errors()) {
 	cerr << "Compilation halted due to static semantic errors." << endl;
 	exit(1);
     }
 }
-
-
