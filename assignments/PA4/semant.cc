@@ -460,15 +460,18 @@ void attr_class::collectTypes()
 
 void method_class::collectTypes()
 {
-  //current class is classEnv[classEnv.size()-1]
-  //loop over formals
   Formal formal;
+  SymbolTable<Symbol,std::vector<Symbol> > table;
+  vector<Symbol> v;
   for(int i=formals->first();formals->more(i);i=formals->next(i))
   {
     formal = formals->nth(i);
     Symbol type = formal->getType();
-    Symbol id = formal->getID();
+    v.push_back(type);
   }
+  v.push_back(return_type);
+  table.addid(name,v);
+  methodEnv.addid(classEnv[classEnv.size()-1],table);
 }
 
 void class__class::collectTypes()
