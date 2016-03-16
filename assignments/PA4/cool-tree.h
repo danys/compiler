@@ -35,7 +35,7 @@ class Class__class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
-
+   virtual void collectTypes() = 0;
 #ifdef Class__EXTRAS
    Class__EXTRAS
 #endif
@@ -50,6 +50,7 @@ public:
    tree_node *copy()		 { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
    virtual int getNodeType() = 0;
+   virtual void collectTypes() = 0;
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -64,6 +65,9 @@ class Formal_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Formal(); }
    virtual Formal copy_Formal() = 0;
+   virtual void collectTypes() = 0;
+   virtual Symbol getType() = 0;
+   virtual Symbol getID() = 0;
 
 #ifdef Formal_EXTRAS
    Formal_EXTRAS
@@ -92,6 +96,7 @@ class Case_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Case(); }
    virtual Case copy_Case() = 0;
+   virtual void collectTypes() = 0;
 
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -244,6 +249,8 @@ public:
    Formal copy_Formal();
    void dump(ostream& stream, int n);
    virtual void collectTypes();
+   virtual Symbol getType(){return type_decl;}
+   virtual Symbol getID(){return name;}
 
 #ifdef Formal_SHARED_EXTRAS
    Formal_SHARED_EXTRAS

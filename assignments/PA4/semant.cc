@@ -460,7 +460,15 @@ void attr_class::collectTypes()
 
 void method_class::collectTypes()
 {
+  //current class is classEnv[classEnv.size()-1]
   //loop over formals
+  Formal formal;
+  for(int i=formals->first();formals->more(i);i=formals->next(i))
+  {
+    formal = formals->nth(i);
+    Symbol type = formal->getType();
+    Symbol id = formal->getID();
+  }
 }
 
 void class__class::collectTypes()
