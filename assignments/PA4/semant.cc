@@ -456,6 +456,7 @@ void formal_class::collectTypes()
 void attr_class::collectTypes()
 {
   objectEnv->addid(name,type_decl);
+  init.collectTypes();
 }
 
 void method_class::collectTypes()
@@ -472,6 +473,7 @@ void method_class::collectTypes()
   v.push_back(return_type);
   table.addid(name,v);
   methodEnv.addid(classEnv[classEnv.size()-1],table);
+  expr.collectTypes();
 }
 
 void class__class::collectTypes()

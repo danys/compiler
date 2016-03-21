@@ -82,6 +82,7 @@ class Expression_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Expression(); }
    virtual Expression copy_Expression() = 0;
+   virtual void collectTypes() = 0;
 
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
