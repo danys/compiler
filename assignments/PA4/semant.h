@@ -26,11 +26,6 @@ private:
   int semant_errors;
   int findClassNameInList(std::string className,std::vector<std::string> &list);
   ostream& error_stream;
-  std::vector<std::vector<int> > classGraph;
-  int rootId;
-  std::vector<std::string> classesList;
-  std::vector<class__class*> classesVect;
-  std::vector<std::string> parentClasses;
   bool isDAG(int intId);
   bool redefinedAttributes(int nodeId, std::vector<attr_class*> attrList);
 
@@ -40,6 +35,14 @@ public:
   ostream& semant_error();
   ostream& semant_error(Class_ c);
   ostream& semant_error(Symbol filename, tree_node *t);
+  std::vector<std::vector<int> > classGraph;
+  int rootId;
+  std::vector<std::string> classesList;
+  std::vector<class__class*> classesVect;
+  std::vector<std::string> parentClasses;
+  SymbolTable<Symbol, Symbol> objectEnv;
+  SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > > methodEnv;
+  std::vector<Symbol> classEnv;
 };
 
 

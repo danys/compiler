@@ -436,58 +436,6 @@ ostream& ClassTable::semant_error()
 {                                                 
     semant_errors++;                            
     return error_stream;
-} 
-
-void let_class::collectTypes()
-{
-  objectEnv->addid(identifier,type_decl);
-}
-
-void branch_class::collectTypes()
-{
-  objectEnv->addid(name,type_decl);
-}
-
-void formal_class::collectTypes()
-{
-  objectEnv->addid(name,type_decl);
-}
-
-void attr_class::collectTypes()
-{
-  objectEnv->addid(name,type_decl);
-  init.collectTypes();
-}
-
-void method_class::collectTypes()
-{
-  Formal formal;
-  SymbolTable<Symbol,std::vector<Symbol> > table;
-  vector<Symbol> v;
-  for(int i=formals->first();formals->more(i);i=formals->next(i))
-  {
-    formal = formals->nth(i);
-    Symbol type = formal->getType();
-    v.push_back(type);
-  }
-  v.push_back(return_type);
-  table.addid(name,v);
-  methodEnv.addid(classEnv[classEnv.size()-1],table);
-  expr.collectTypes();
-}
-
-void class__class::collectTypes()
-{
-  classEnv.push_back(idtable.add_string(name));
-  for(int i = features->first(); features->more(i); i = features->next(i))
-  {
-    methodEnv->enterscope();
-    objectEnv->enterscope();
-    features->nth(i)->collectTypes();
-    objectEnv->exitscope();
-    methodEnv->exitscope();
-  }
-    
 }
 
 /*   This is the entry point to the semantic checker.
@@ -510,17 +458,11 @@ void program_class::semant()
     classes = append_Classes(basicClasses,classes);
     /* ClassTable constructor may do some semantic analysis */
     ClassTable *classtable = new ClassTable(classes);
-
-    //DFS traversal through AST and gather all object names
-    for(int i = classes->first(); classes->more(i); i = classes->next(i))
-    {
-      methodEnv->enterscope();
-      objectEnv->enterscope();
-      classes->nth(i)->collectTypes();
-      methodEnv->exitscope();
-      objectEnv->exitscope();
-    }
-
+    struct environment* env;
+    env->objectEnv = &(classtable->objectEnv);
+    env->methodEnv = &(classtable->methodEnv);
+    env->classEnv = &(classtable->classEnv);
+    collectTypes(env);
     if (classtable->errors()) {
 	cerr << "Compilation halted due to static semantic errors." << endl;
 	exit(1);
