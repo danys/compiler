@@ -11,7 +11,7 @@
 
 #include "tree.h"
 #include "cool-tree.handcode.h"
-
+#include "environment.h"
 
 // define the class for phylum
 // define simple phylum - Program
@@ -21,7 +21,7 @@ class Program_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Program(); }
    virtual Program copy_Program() = 0;
-
+   virtual void collectTypes(environment* env) = 0;
 #ifdef Program_EXTRAS
    Program_EXTRAS
 #endif
@@ -35,7 +35,7 @@ class Class__class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
-   virtual void collectTypes() = 0;
+   virtual void collectTypes(environment* env) = 0;
 #ifdef Class__EXTRAS
    Class__EXTRAS
 #endif
@@ -50,7 +50,7 @@ public:
    tree_node *copy()		 { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
    virtual int getNodeType() = 0;
-   virtual void collectTypes() = 0;
+   virtual void collectTypes(environment* env) = 0;
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -65,7 +65,7 @@ class Formal_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Formal(); }
    virtual Formal copy_Formal() = 0;
-   virtual void collectTypes() = 0;
+   virtual void collectTypes(environment* env) = 0;
    virtual Symbol getType() = 0;
    virtual Symbol getID() = 0;
 
@@ -82,7 +82,7 @@ class Expression_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Expression(); }
    virtual Expression copy_Expression() = 0;
-   virtual void collectTypes() = 0;
+   virtual void collectTypes(environment* env) = 0;
 
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
@@ -97,7 +97,7 @@ class Case_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Case(); }
    virtual Case copy_Case() = 0;
-   virtual void collectTypes() = 0;
+   virtual void collectTypes(environment* env) = 0;
 
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -142,6 +142,7 @@ public:
    }
    Program copy_Program();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Program_SHARED_EXTRAS
    Program_SHARED_EXTRAS
@@ -171,7 +172,7 @@ public:
    Symbol get_name(){return name;}
    Symbol get_parent(){return parent;}
    Features get_features(){return features;}
-   virtual void collectTypes();
+   virtual void collectTypes(environment* env);
 
 #ifdef Class__SHARED_EXTRAS
    Class__SHARED_EXTRAS
@@ -199,7 +200,7 @@ public:
    Feature copy_Feature();
    void dump(ostream& stream, int n);
    int getNodeType() {return 1;}
-   virtual void collectTypes();
+   virtual void collectTypes(environment* env);
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -226,7 +227,7 @@ public:
    void dump(ostream& stream, int n);
    int getNodeType() {return 2;}
    Symbol getName(){return name;}
-   virtual void collectTypes();
+   virtual void collectTypes(environment* env);
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -249,7 +250,7 @@ public:
    }
    Formal copy_Formal();
    void dump(ostream& stream, int n);
-   virtual void collectTypes();
+   virtual void collectTypes(environment* env);
    virtual Symbol getType(){return type_decl;}
    virtual Symbol getID(){return name;}
 
@@ -276,7 +277,7 @@ public:
    }
    Case copy_Case();
    void dump(ostream& stream, int n);
-   virtual void collectTypes();
+   virtual void collectTypes(environment* env);
 
 #ifdef Case_SHARED_EXTRAS
    Case_SHARED_EXTRAS
@@ -299,6 +300,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -307,7 +309,6 @@ public:
    assign_EXTRAS
 #endif
 };
-
 
 // define constructor - static_dispatch
 class static_dispatch_class : public Expression_class {
@@ -325,6 +326,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -349,6 +351,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -373,6 +376,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -395,6 +399,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -417,6 +422,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -437,6 +443,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -463,7 +470,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes();
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -486,6 +493,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -508,6 +516,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -530,6 +539,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+     virtual void collectTypes(environment* env);
+   
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -552,6 +563,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -572,6 +584,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -594,6 +607,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -616,6 +630,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -638,6 +653,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -658,6 +674,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -678,6 +695,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -698,6 +716,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -718,6 +737,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -738,6 +758,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -758,6 +779,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -776,6 +798,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -796,6 +819,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void collectTypes(environment* env);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
