@@ -80,6 +80,13 @@ static void initialize_constants(void)
     val         = idtable.add_string("_val");
 }
 
+struct environment
+{
+  SymbolTable<Symbol, Symbol>* objectEnv;
+  SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > >* methodEnv;
+  std::vector<Symbol>* classEnv;
+};
+
 //Kahn's algorithm
 bool ClassTable::isDAG(int intId)
 {
@@ -438,6 +445,436 @@ ostream& ClassTable::semant_error()
     return error_stream;
 }
 
+//First DFS pass that collects declared types
+void program_class::collectTypes(ClassTable* classtable)
+{
+    for(int i = classes->first(); classes->more(i); i = classes->next(i))
+    {
+      classtable->methodEnv.enterscope();
+      classtable->objectEnv.enterscope();
+      classes->nth(i)->collectTypes(classtable);
+      classtable->methodEnv.exitscope();
+      classtable->objectEnv.exitscope();
+    }
+}
+
+void class__class::collectTypes(ClassTable* classtable)
+{
+  classtable->classEnv.push_back(name);
+  for(int i = features->first(); features->more(i); i = features->next(i))
+  {
+    classtable->methodEnv.enterscope();
+    classtable->objectEnv.enterscope();
+    features->nth(i)->collectTypes(classtable);
+    classtable->objectEnv.exitscope();
+    classtable->methodEnv.exitscope();
+  }
+}
+
+void method_class::collectTypes(ClassTable* classtable)
+{
+  Formal formal;
+  SymbolTable<Symbol,std::vector<Symbol> >* table = 0;
+  std::vector<Symbol>* v = 0;
+  for(int i=formals->first();formals->more(i);i=formals->next(i))
+  {
+    formal = formals->nth(i);
+    Symbol type = formal->getType();
+    v->push_back(type);
+  }
+  v->push_back(return_type);
+  table->addid(name,v);
+  classtable->methodEnv.addid(classtable->classEnv.at(classtable->classEnv.size()-1),table);
+  for(int i = formals->first(); formals->more(i); i = formals->next(i))
+     formals->nth(i)->collectTypes(classtable);
+   expr->collectTypes(classtable);
+}
+
+void attr_class::collectTypes(ClassTable* classtable)
+{
+  Symbol* typeD = 0;
+  *typeD = type_decl;
+  classtable->objectEnv.addid(name,typeD);
+  init->collectTypes(classtable);
+}
+
+void formal_class::collectTypes(ClassTable* classtable)
+{
+  Symbol* typeD = 0;
+  *typeD = type_decl;
+  classtable->objectEnv.addid(name,typeD);
+}
+
+void branch_class::collectTypes(ClassTable* classtable)
+{
+  Symbol* typeD = 0;
+  *typeD = type_decl;
+  classtable->objectEnv.addid(name,typeD);
+  expr->collectTypes(classtable);
+}
+
+void assign_class::collectTypes(ClassTable* classtable)
+{
+   expr->collectTypes(classtable);
+}
+
+void static_dispatch_class::collectTypes(ClassTable* classtable)
+{
+   expr->collectTypes(classtable);
+   for(int i = actual->first(); actual->more(i); i = actual->next(i))
+     actual->nth(i)->collectTypes(classtable);
+}
+
+void dispatch_class::collectTypes(ClassTable* classtable)
+{
+   expr->collectTypes(classtable);
+   for(int i = actual->first(); actual->more(i); i = actual->next(i))
+     actual->nth(i)->collectTypes(classtable);
+}
+
+void cond_class::collectTypes(ClassTable* classtable)
+{
+   pred->collectTypes(classtable);
+   then_exp->collectTypes(classtable);
+   else_exp->collectTypes(classtable);
+}
+
+void loop_class::collectTypes(ClassTable* classtable)
+{
+  pred->collectTypes(classtable);
+  body->collectTypes(classtable);
+}
+
+void typcase_class::collectTypes(ClassTable* classtable)
+{
+   expr->collectTypes(classtable);
+   for(int i = cases->first(); cases->more(i); i = cases->next(i))
+     cases->nth(i)->collectTypes(classtable);
+}
+
+void block_class::collectTypes(ClassTable* classtable)
+{
+   for(int i = body->first(); body->more(i); i = body->next(i))
+     body->nth(i)->collectTypes(classtable);
+}
+
+void let_class::collectTypes(ClassTable* classtable)
+{
+  Symbol* typeD = 0;
+  *typeD = type_decl;
+  classtable->objectEnv.addid(identifier,typeD);
+  init->collectTypes(classtable);
+  body->collectTypes(classtable);
+}
+
+void plus_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+   e2->collectTypes(classtable);
+}
+
+void sub_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+   e2->collectTypes(classtable);
+}
+
+void mul_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+   e2->collectTypes(classtable);
+}
+
+void divide_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+   e2->collectTypes(classtable);
+}
+
+void neg_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+}
+
+void lt_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+   e2->collectTypes(classtable);
+}
+
+
+void eq_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+   e2->collectTypes(classtable);
+}
+
+void leq_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+   e2->collectTypes(classtable);
+}
+
+void comp_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+}
+
+void int_const_class::collectTypes(ClassTable* classtable)
+{
+   //do nothing
+}
+
+void bool_const_class::collectTypes(ClassTable* classtable)
+{
+   //do nothing
+}
+
+void string_const_class::collectTypes(ClassTable* classtable)
+{
+   //do nothing
+}
+
+void new__class::collectTypes(ClassTable* classtable)
+{
+   //do nothing
+}
+
+void isvoid_class::collectTypes(ClassTable* classtable)
+{
+   e1->collectTypes(classtable);
+}
+
+void no_expr_class::collectTypes(ClassTable* classtable)
+{
+  //do nothing
+}
+
+void object_class::collectTypes(ClassTable* classtable)
+{
+  //do nothing
+}
+
+//2nd pass: infer types
+void program_class::inferTypes(ClassTable* classtable)
+{
+    for(int i = classes->first(); classes->more(i); i = classes->next(i))
+    {
+      classtable->methodEnv.enterscope();
+      classtable->objectEnv.enterscope();
+      classes->nth(i)->inferTypes(classtable);
+      classtable->methodEnv.exitscope();
+      classtable->objectEnv.exitscope();
+    }
+}
+
+void class__class::inferTypes(ClassTable* classtable)
+{
+  classtable->classEnv.push_back(name);
+  for(int i = features->first(); features->more(i); i = features->next(i))
+  {
+    classtable->methodEnv.enterscope();
+    classtable->objectEnv.enterscope();
+    features->nth(i)->inferTypes(classtable);
+    classtable->objectEnv.exitscope();
+    classtable->methodEnv.exitscope();
+  }
+}
+
+void method_class::inferTypes(ClassTable* classtable)
+{
+  Formal formal;
+  SymbolTable<Symbol,std::vector<Symbol> >* table = 0;
+  std::vector<Symbol>* v = 0;
+  for(int i=formals->first();formals->more(i);i=formals->next(i))
+  {
+    formal = formals->nth(i);
+    Symbol type = formal->getType();
+    v->push_back(type);
+  }
+  v->push_back(return_type);
+  table->addid(name,v);
+  classtable->methodEnv.addid(classtable->classEnv.at(classtable->classEnv.size()-1),table);
+  for(int i = formals->first(); formals->more(i); i = formals->next(i))
+     formals->nth(i)->inferTypes(classtable);
+   expr->inferTypes(classtable);
+}
+
+void attr_class::inferTypes(ClassTable* classtable)
+{
+  Symbol* typeD = 0;
+  *typeD = type_decl;
+  classtable->objectEnv.addid(name,typeD);
+  init->inferTypes(classtable);
+}
+
+void formal_class::inferTypes(ClassTable* classtable)
+{
+  Symbol* typeD = 0;
+  *typeD = type_decl;
+  classtable->objectEnv.addid(name,typeD);
+}
+
+void branch_class::inferTypes(ClassTable* classtable)
+{
+  Symbol* typeD = 0;
+  *typeD = type_decl;
+  classtable->objectEnv.addid(name,typeD);
+  expr->inferTypes(classtable);
+}
+
+void assign_class::inferTypes(ClassTable* classtable)
+{
+   expr->inferTypes(classtable);
+}
+
+void static_dispatch_class::inferTypes(ClassTable* classtable)
+{
+   expr->inferTypes(classtable);
+   for(int i = actual->first(); actual->more(i); i = actual->next(i))
+     actual->nth(i)->inferTypes(classtable);
+}
+
+void dispatch_class::inferTypes(ClassTable* classtable)
+{
+   expr->inferTypes(classtable);
+   for(int i = actual->first(); actual->more(i); i = actual->next(i))
+     actual->nth(i)->inferTypes(classtable);
+}
+
+void cond_class::inferTypes(ClassTable* classtable)
+{
+   pred->inferTypes(classtable);
+   then_exp->inferTypes(classtable);
+   else_exp->inferTypes(classtable);
+}
+
+void loop_class::inferTypes(ClassTable* classtable)
+{
+  pred->inferTypes(classtable);
+  body->inferTypes(classtable);
+}
+
+void typcase_class::inferTypes(ClassTable* classtable)
+{
+   expr->inferTypes(classtable);
+   for(int i = cases->first(); cases->more(i); i = cases->next(i))
+     cases->nth(i)->inferTypes(classtable);
+}
+
+void block_class::inferTypes(ClassTable* classtable)
+{
+   for(int i = body->first(); body->more(i); i = body->next(i))
+     body->nth(i)->inferTypes(classtable);
+}
+
+void let_class::inferTypes(ClassTable* classtable)
+{
+  Symbol* typeD = 0;
+  *typeD = type_decl;
+  classtable->objectEnv.addid(identifier,typeD);
+  init->inferTypes(classtable);
+  body->inferTypes(classtable);
+}
+
+void plus_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+   e2->inferTypes(classtable);
+}
+
+void sub_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+   e2->inferTypes(classtable);
+}
+
+void mul_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+   e2->inferTypes(classtable);
+}
+
+void divide_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+   e2->inferTypes(classtable);
+}
+
+void neg_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+}
+
+void lt_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+   e2->inferTypes(classtable);
+}
+
+
+void eq_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+   e2->inferTypes(classtable);
+}
+
+void leq_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+   e2->inferTypes(classtable);
+}
+
+void comp_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+}
+
+void int_const_class::inferTypes(ClassTable* classtable)
+{
+   set_type(Int);
+}
+
+void bool_const_class::inferTypes(ClassTable* classtable)
+{
+   set_type(Bool);
+}
+
+void string_const_class::inferTypes(ClassTable* classtable)
+{
+  //Differentiate between IO and String class here?
+  set_type(Str);
+}
+
+void new__class::inferTypes(ClassTable* classtable)
+{
+   //do nothing
+}
+
+void isvoid_class::inferTypes(ClassTable* classtable)
+{
+   e1->inferTypes(classtable);
+}
+
+void no_expr_class::inferTypes(ClassTable* classtable)
+{
+  //set type to null
+  set_type(NULL);
+}
+
+void object_class::inferTypes(ClassTable* classtable)
+{
+  Symbol* t = classtable->objectEnv.lookup(name);
+  if (t==NULL)
+  {
+    cerr << "Type declaration for object not found anywhere." << <endl;
+    classtable->semant_error();
+    set_type(Object); //default to object type
+  }
+  else set_type(*t);
+}
+//End of 2nd phase
+
 /*   This is the entry point to the semantic checker.
 
      Your checker should do the following two things:
@@ -458,11 +895,8 @@ void program_class::semant()
     classes = append_Classes(basicClasses,classes);
     /* ClassTable constructor may do some semantic analysis */
     ClassTable *classtable = new ClassTable(classes);
-    struct environment* env;
-    env->objectEnv = &(classtable->objectEnv);
-    env->methodEnv = &(classtable->methodEnv);
-    env->classEnv = &(classtable->classEnv);
-    collectTypes(env);
+    collectTypes(classtable);
+    inferTypes(classtable);
     if (classtable->errors()) {
 	cerr << "Compilation halted due to static semantic errors." << endl;
 	exit(1);

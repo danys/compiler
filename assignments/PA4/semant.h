@@ -40,6 +40,7 @@ public:
   std::vector<std::string> classesList;
   std::vector<class__class*> classesVect;
   std::vector<std::string> parentClasses;
+  //The three components of the environment
   SymbolTable<Symbol, Symbol> objectEnv;
   SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > > methodEnv;
   std::vector<Symbol> classEnv;

@@ -11,7 +11,8 @@
 
 #include "tree.h"
 #include "cool-tree.handcode.h"
-#include "environment.h"
+
+class ClassTable; //forward declare ClassTable
 
 // define the class for phylum
 // define simple phylum - Program
@@ -21,7 +22,8 @@ class Program_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Program(); }
    virtual Program copy_Program() = 0;
-   virtual void collectTypes(environment* env) = 0;
+   virtual void collectTypes(ClassTable* classtable) = 0;
+   virtual void inferTypes(ClassTable* classtable) = 0;
 #ifdef Program_EXTRAS
    Program_EXTRAS
 #endif
@@ -35,7 +37,8 @@ class Class__class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
-   virtual void collectTypes(environment* env) = 0;
+   virtual void collectTypes(ClassTable* classtable) = 0;
+   virtual void inferTypes(ClassTable* classtable) = 0;
 #ifdef Class__EXTRAS
    Class__EXTRAS
 #endif
@@ -50,7 +53,8 @@ public:
    tree_node *copy()		 { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
    virtual int getNodeType() = 0;
-   virtual void collectTypes(environment* env) = 0;
+   virtual void collectTypes(ClassTable* classtable) = 0;
+   virtual void inferTypes(ClassTable* classtable) = 0;
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -65,7 +69,8 @@ class Formal_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Formal(); }
    virtual Formal copy_Formal() = 0;
-   virtual void collectTypes(environment* env) = 0;
+   virtual void collectTypes(ClassTable* classtable) = 0;
+   virtual void inferTypes(ClassTable* classtable) = 0;
    virtual Symbol getType() = 0;
    virtual Symbol getID() = 0;
 
@@ -82,7 +87,8 @@ class Expression_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Expression(); }
    virtual Expression copy_Expression() = 0;
-   virtual void collectTypes(environment* env) = 0;
+   virtual void collectTypes(ClassTable* classtable) = 0;
+   virtual void inferTypes(ClassTable* classtable) = 0;
 
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
@@ -97,7 +103,8 @@ class Case_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Case(); }
    virtual Case copy_Case() = 0;
-   virtual void collectTypes(environment* env) = 0;
+   virtual void collectTypes(ClassTable* classtable) = 0;
+   virtual void inferTypes(ClassTable* classtable) = 0;
 
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -142,7 +149,8 @@ public:
    }
    Program copy_Program();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Program_SHARED_EXTRAS
    Program_SHARED_EXTRAS
@@ -172,7 +180,8 @@ public:
    Symbol get_name(){return name;}
    Symbol get_parent(){return parent;}
    Features get_features(){return features;}
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Class__SHARED_EXTRAS
    Class__SHARED_EXTRAS
@@ -200,7 +209,8 @@ public:
    Feature copy_Feature();
    void dump(ostream& stream, int n);
    int getNodeType() {return 1;}
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -227,7 +237,8 @@ public:
    void dump(ostream& stream, int n);
    int getNodeType() {return 2;}
    Symbol getName(){return name;}
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -250,9 +261,10 @@ public:
    }
    Formal copy_Formal();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
    virtual Symbol getType(){return type_decl;}
    virtual Symbol getID(){return name;}
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Formal_SHARED_EXTRAS
    Formal_SHARED_EXTRAS
@@ -277,7 +289,8 @@ public:
    }
    Case copy_Case();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Case_SHARED_EXTRAS
    Case_SHARED_EXTRAS
@@ -300,7 +313,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -326,7 +340,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -351,7 +366,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -376,7 +392,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -399,7 +416,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -422,7 +440,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -443,7 +462,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -470,7 +490,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -493,7 +514,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -516,7 +538,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -539,8 +562,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-     virtual void collectTypes(environment* env);
-   
+     virtual void collectTypes(ClassTable* classtable);
+     virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -563,7 +586,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -584,7 +608,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -607,7 +632,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -630,7 +656,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -653,7 +680,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -674,7 +702,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -695,7 +724,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -716,7 +746,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -737,7 +768,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -758,7 +790,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -779,7 +812,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -798,7 +832,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -819,7 +854,8 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
-   virtual void collectTypes(environment* env);
+   virtual void collectTypes(ClassTable* classtable);
+   virtual void inferTypes(ClassTable* classtable);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
