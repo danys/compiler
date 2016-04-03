@@ -44,6 +44,9 @@ public:
   SymbolTable<Symbol, Symbol> objectEnv;
   SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > > methodEnv;
   std::vector<Symbol> classEnv;
+  //Type checking helper methods
+  bool AconformsToB(Symbol a, Symbol b);
+  Symbol leastCommonAncestor(Symbol a, Symbol b);
 };
 
 
