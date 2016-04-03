@@ -201,6 +201,47 @@ bool ClassTable::redefinedAttributes(int nodeId, std::vector<attr_class*> attrLi
   return false;
 }
 
+bool ClassTable::AconformsToB(Symbol a, Symbol b)
+{
+  //a is b or one of its descendants
+  std::string astr(a.get_string(),a.get_len());
+  std::string bstr(a.get_string(),b.get_len());
+  int aId = findClassNameInList(bstr,classesList);
+  if (aId==-1)
+  {
+    cerr << "Error finding " << astr << " class to check conformance with " << bstr << "class." << endl;
+    return false;
+  }
+  int bId = findClassNameInList(astr,classesList);
+  if (bId==-1)
+  {
+    cerr << "Error finding " << bstr << " class to check if " << astr << "class conforms to it." << endl;
+    return false;
+  }
+  //Find aId starting from bId
+  vector<int> stack = classGraph[bId];
+  int t; //current node id
+  vector<int> vtemp;
+  while(stack.size>0)
+  {
+    //pop int id from stack
+    t = stack.back();
+    stack.pop_back();
+    if (t == aId) return true;
+    //retrieve vector for int id
+    vtemp = classGraph[t];
+    //add vect to stack
+    stack.insert( stack.end(), vtemp.begin(), vtemp.end());
+  }
+  //if aId has not yet been found => aId does not conform to bId
+  return false;
+}
+
+Symbol ClassTable::leastCommonAncestor(Symbol a, Symbol b)
+{
+  //TODO
+}
+
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
   //Iterate through the classes to build the dependency graph
   int /*intId=0,*/classId,parentId,tempId,pvectId; //unique id to assign to every class
@@ -290,8 +331,8 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     bool isOK = isDAG(classesList.size());
     if (!isOK)
     {
-      semant_error(dynamic_cast<class__class*>(classes->nth(0)));
-      cerr << error_stream << endl;
+      cerr << "Inheritance graph has cycles." << endl;
+      semant_error();
     }
     else
     {
@@ -299,8 +340,8 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
       std::vector<attr_class*> attrList;
       if (redefinedAttributes(rootId,attrList))
       {
-	semant_error(dynamic_cast<class__class*>(classes->nth(0)));
-	cerr << error_stream << endl;
+	cerr << "Attributes are redefined in subclass." << endl;
+	semant_error();
       }
     }
   }
@@ -726,6 +767,21 @@ void branch_class::inferTypes(ClassTable* classtable)
 void assign_class::inferTypes(ClassTable* classtable)
 {
    expr->inferTypes(classtable);
+   //OK now expr e1 should have a type t'
+   Symbol tprimeType = expr->get_type();
+   //Check if tprimtTpye is <= type of name
+   Symbol* t = classtable->objectEnv.lookup(name);
+   if (t==NULL)
+   {
+    cerr << "Type declaration for object not found anywhere." << endl;
+    classtable->semant_error();
+    *t = Object; //default to object type
+   }
+   if (!AconformsToB(tprimeType, *t))
+   {
+     cerr << "Assign class error: Assigned type does not conform to type of variable." << endl;
+    classtable->semant_error();
+   }
 }
 
 void static_dispatch_class::inferTypes(ClassTable* classtable)
@@ -733,6 +789,28 @@ void static_dispatch_class::inferTypes(ClassTable* classtable)
    expr->inferTypes(classtable);
    for(int i = actual->first(); actual->more(i); i = actual->next(i))
      actual->nth(i)->inferTypes(classtable);
+   //Get the class from expr as a Symbol
+   Symbol className = expr->get_type();
+   if (!AconformsToB(className,type_name))
+   {
+     cerr << "Static dispatch class does not conform to given class T" << endl;
+     classtable->semant_error();
+   }
+   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = methodEnv.lookup(type_name);
+   std::vector<Symbol> methodArgs = *(methodsList->lookup(name));
+   //Check that all actual types conform to the types of methodArgs
+   for(int i=0;i<methodArgs.size()-1;i++)
+   {
+     if (!AconformsToB(actual->nth(i)->get_type(),methodArgs[i]))
+     {
+       classtable->semant_error();
+       cerr << "Actual types of args of dynamic dispatch method do not conform to declared types" << endl;
+       break;
+     }
+   }
+   //Set the return type
+   if (methodArgs.back().equal_string("SELF_TYPE",9)==0) set_type(className);
+   else set_type(methodArgs.back());
 }
 
 void dispatch_class::inferTypes(ClassTable* classtable)
@@ -740,6 +818,26 @@ void dispatch_class::inferTypes(ClassTable* classtable)
    expr->inferTypes(classtable);
    for(int i = actual->first(); actual->more(i); i = actual->next(i))
      actual->nth(i)->inferTypes(classtable);
+   //Get the class from expr as a Symbol
+   Symbol className = expr->get_type();
+   Symbol t0prime;
+   if (className.equal_string("SELF_TYPE",9)==0) t0prime = classEnv.back();
+   else t0prime = className;
+   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = methodEnv.lookup(t0prime);
+   std::vector<Symbol> methodArgs = *(methodsList->lookup(name));
+   //Check that all actual types conform to the types of methodArgs
+   for(int i=0;i<methodArgs.size()-1;i++)
+   {
+     if (!AconformsToB(actual->nth(i)->get_type(),methodArgs[i]))
+     {
+       classtable->semant_error();
+       cerr << "Actual types of args of dynamic dispatch method do not conform to declared types" << endl;
+       break;
+     }
+   }
+   //Set the return type
+   if (methodArgs.back().equal_string("SELF_TYPE",9)==0) set_type(className);
+   else set_type(methodArgs.back());
 }
 
 void cond_class::inferTypes(ClassTable* classtable)
@@ -747,6 +845,8 @@ void cond_class::inferTypes(ClassTable* classtable)
    pred->inferTypes(classtable);
    then_exp->inferTypes(classtable);
    else_exp->inferTypes(classtable);
+   if (pred->get_type().equal_string("Bool",4)!=0) cerr << "If predicate does not have type Bool!" << endl;
+   set_type(leastCommonAncestor(then_exp->get_type(),else_exp->get_type()));
 }
 
 void loop_class::inferTypes(ClassTable* classtable)
@@ -766,6 +866,8 @@ void block_class::inferTypes(ClassTable* classtable)
 {
    for(int i = body->first(); body->more(i); i = body->next(i))
      body->nth(i)->inferTypes(classtable);
+   Expression exp = body->nth(body->len()-1);
+   set_type(exp->get_type());
 }
 
 void let_class::inferTypes(ClassTable* classtable)
@@ -832,7 +934,23 @@ void comp_class::inferTypes(ClassTable* classtable)
 
 void int_const_class::inferTypes(ClassTable* classtable)
 {
-   set_type(Int);
+  //Check that token is an int
+  string tokenstr(token.get_string(),token.get_len());
+  bool ok = true;
+  for(int i=0;i<tokenstr.size();i++)
+  {
+    if ((char)tokenstr[i]<48) || ((char)tokenstr[i]>57))
+    {
+      ok = false;
+      break;
+    }
+  }
+  if (!ok)
+  {
+    cerr << "Identifier is no integer default to 0" << endl;
+    setToken(idtable.add_string("0")); //set token to zero
+  }
+  set_type(Int);
 }
 
 void bool_const_class::inferTypes(ClassTable* classtable)
@@ -842,13 +960,15 @@ void bool_const_class::inferTypes(ClassTable* classtable)
 
 void string_const_class::inferTypes(ClassTable* classtable)
 {
+  //Check that token is a string
   //Differentiate between IO and String class here?
   set_type(Str);
 }
 
 void new__class::inferTypes(ClassTable* classtable)
 {
-   //do nothing
+  if (type_name.equal_string("SELF_TYPE",9)==0) set_type(classtable->classEnv.back());
+  else set_type(type_name);
 }
 
 void isvoid_class::inferTypes(ClassTable* classtable)
@@ -867,7 +987,7 @@ void object_class::inferTypes(ClassTable* classtable)
   Symbol* t = classtable->objectEnv.lookup(name);
   if (t==NULL)
   {
-    cerr << "Type declaration for object not found anywhere." << <endl;
+    cerr << "Type declaration for object not found anywhere." << endl;
     classtable->semant_error();
     set_type(Object); //default to object type
   }
