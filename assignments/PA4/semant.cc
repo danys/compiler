@@ -853,6 +853,12 @@ void loop_class::inferTypes(ClassTable* classtable)
 {
   pred->inferTypes(classtable);
   body->inferTypes(classtable);
+  if (pred->get_type()->equal_string("Bool",4)!=0)
+  {
+    cerr << "Loop predicate must have type Bool!" << end;
+    classtable->semant_error();
+  }
+  set_type(Object);
 }
 
 void typcase_class::inferTypes(ClassTable* classtable)
@@ -906,12 +912,24 @@ void divide_class::inferTypes(ClassTable* classtable)
 void neg_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
+   if (!e1->get_type().equal_string("Int",3))
+   {
+     classtable->semant_error();
+     cerr << "Neg class should have Int type" << endl;
+   }
+   set_type(Int);
 }
 
 void lt_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
+   if ((e1->get_type()->equal_string("Int",3)!=0) && (e2->get_type()->equal_string("Int",3)!=0))
+   {
+     cerr << "Leq comparison operators must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   set_type(Bool);
 }
 
 
@@ -919,17 +937,44 @@ void eq_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
+   Symbol eqtype = e1->get_type();
+   if ((eqtype->equal_string("Int",3)!=0) && (eqtype->equal_string("String",6)!=0) && (eqtype->equal_string("Bool",4)!=0))
+   {
+     cerr << "Eq class needs to have operands of type Int, String or Bool!" << endl;
+     classtable->semant_error();
+   }
+   else
+   {
+     if (e2->get_type()->equal_string(eqtype->get_string(),eqtype->get_len())!=0)
+     {
+       cerr << "Eq operands must have the same type!" << endl;
+       classtable->semant_error();
+     }
+   }
+   set_type(Bool);
 }
 
 void leq_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
+   if ((e1->get_type()->equal_string("Int",3)!=0) && (e2->get_type()->equal_string("Int",3)!=0))
+   {
+     cerr << "Leq comparison operators must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   set_type(Bool);
 }
 
 void comp_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
+   if (e1->get_type()->equal_string("Bool",4)!=0)
+   {
+     cerr << "Not operand must have type Bool!" << endl;
+     classtable->semant_error();
+   }
+   set_type(Bool);
 }
 
 void int_const_class::inferTypes(ClassTable* classtable)
@@ -974,6 +1019,7 @@ void new__class::inferTypes(ClassTable* classtable)
 void isvoid_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
+   set_type(Bool);
 }
 
 void no_expr_class::inferTypes(ClassTable* classtable)
