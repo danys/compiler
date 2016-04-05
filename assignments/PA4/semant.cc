@@ -80,13 +80,6 @@ static void initialize_constants(void)
     val         = idtable.add_string("_val");
 }
 
-struct environment
-{
-  SymbolTable<Symbol, Symbol>* objectEnv;
-  SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > >* methodEnv;
-  std::vector<Symbol>* classEnv;
-};
-
 //Kahn's algorithm
 bool ClassTable::isDAG(int intId)
 {
@@ -204,25 +197,25 @@ bool ClassTable::redefinedAttributes(int nodeId, std::vector<attr_class*> attrLi
 bool ClassTable::AconformsToB(Symbol a, Symbol b)
 {
   //a is b or one of its descendants
-  std::string astr(a.get_string(),a.get_len());
-  std::string bstr(a.get_string(),b.get_len());
-  int aId = findClassNameInList(bstr,classesList);
+  std::string astr(a->get_string(),a->get_len());
+  std::string bstr(a->get_string(),b->get_len());
+  int aId = findClassNameInList(astr,classesList);
   if (aId==-1)
   {
     cerr << "Error finding " << astr << " class to check conformance with " << bstr << "class." << endl;
     return false;
   }
-  int bId = findClassNameInList(astr,classesList);
+  int bId = findClassNameInList(bstr,classesList);
   if (bId==-1)
   {
     cerr << "Error finding " << bstr << " class to check if " << astr << "class conforms to it." << endl;
     return false;
   }
   //Find aId starting from bId
-  vector<int> stack = classGraph[bId];
+  std::vector<int> stack = classGraph[bId];
   int t; //current node id
-  vector<int> vtemp;
-  while(stack.size>0)
+  std::vector<int> vtemp;
+  while(stack.size()>0)
   {
     //pop int id from stack
     t = stack.back();
@@ -237,9 +230,52 @@ bool ClassTable::AconformsToB(Symbol a, Symbol b)
   return false;
 }
 
+std::vector<int> ClassTable::dfsPath(int x)
+{
+  std::vector<int> res;
+  std::vector<int> stack;
+  stack.push_back(rootId);
+  int curNode;
+  while(stack.size()>0)
+  {
+    curNode = stack.back();
+    res.push_back(curNode);
+    if (curNode==x) break;
+    stack.pop_back();
+    std::vector<int> v = classGraph[curNode];
+    for(unsigned int i=0;i<v.size();i++) stack.push_back(v[i]);
+  }
+  return res;
+}
+
+int ClassTable::lastCommonElement(std::vector<int> &a, std::vector<int> &b)
+{
+  int minLen = (a.size()<=b.size()) ? a.size() : b.size();
+  int last = -1;
+  while((last+1<=minLen-1) && (a[last+1]==b[last+1])) last++;
+  return last;
+}
+
 Symbol ClassTable::leastCommonAncestor(Symbol a, Symbol b)
 {
-  //TODO
+  std::string astr(a->get_string(),a->get_len());
+  int aId = findClassNameInList(astr,classesList);
+  std::string bstr(a->get_string(),b->get_len());
+  if (aId==-1)
+  {
+    cerr << "Error finding " << astr << " class to find least common ancestor." << endl;
+    return false;
+  }
+  int bId = findClassNameInList(bstr,classesList);
+  if (bId==-1)
+  {
+    cerr << "Error finding " << bstr << " class to find least common ancestor." << endl;
+    return false;
+  }
+  std::vector<int> aPath = dfsPath(aId);
+  std::vector<int> bPath = dfsPath(bId);
+  int ancestorId = lastCommonElement(aPath,bPath);
+  return idtable.add_string(const_cast<char*>(classesList[ancestorId].c_str()),classesList[ancestorId].size());
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
@@ -777,7 +813,7 @@ void assign_class::inferTypes(ClassTable* classtable)
     classtable->semant_error();
     *t = Object; //default to object type
    }
-   if (!AconformsToB(tprimeType, *t))
+   if (!classtable->AconformsToB(tprimeType, *t))
    {
      cerr << "Assign class error: Assigned type does not conform to type of variable." << endl;
     classtable->semant_error();
@@ -791,17 +827,17 @@ void static_dispatch_class::inferTypes(ClassTable* classtable)
      actual->nth(i)->inferTypes(classtable);
    //Get the class from expr as a Symbol
    Symbol className = expr->get_type();
-   if (!AconformsToB(className,type_name))
+   if (!classtable->AconformsToB(className,type_name))
    {
      cerr << "Static dispatch class does not conform to given class T" << endl;
      classtable->semant_error();
    }
-   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = methodEnv.lookup(type_name);
+   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = classtable->methodEnv.lookup(type_name);
    std::vector<Symbol> methodArgs = *(methodsList->lookup(name));
    //Check that all actual types conform to the types of methodArgs
-   for(int i=0;i<methodArgs.size()-1;i++)
+   for(unsigned int i=0;i<methodArgs.size()-1;i++)
    {
-     if (!AconformsToB(actual->nth(i)->get_type(),methodArgs[i]))
+     if (!classtable->AconformsToB(actual->nth(i)->get_type(),methodArgs[i]))
      {
        classtable->semant_error();
        cerr << "Actual types of args of dynamic dispatch method do not conform to declared types" << endl;
@@ -809,7 +845,7 @@ void static_dispatch_class::inferTypes(ClassTable* classtable)
      }
    }
    //Set the return type
-   if (methodArgs.back().equal_string("SELF_TYPE",9)==0) set_type(className);
+   if (methodArgs.back()->equal_string("SELF_TYPE",9)==0) set_type(className);
    else set_type(methodArgs.back());
 }
 
@@ -821,14 +857,14 @@ void dispatch_class::inferTypes(ClassTable* classtable)
    //Get the class from expr as a Symbol
    Symbol className = expr->get_type();
    Symbol t0prime;
-   if (className.equal_string("SELF_TYPE",9)==0) t0prime = classEnv.back();
+   if (className->equal_string("SELF_TYPE",9)==0) t0prime = classtable->classEnv.back();
    else t0prime = className;
-   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = methodEnv.lookup(t0prime);
+   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = classtable->methodEnv.lookup(t0prime);
    std::vector<Symbol> methodArgs = *(methodsList->lookup(name));
    //Check that all actual types conform to the types of methodArgs
-   for(int i=0;i<methodArgs.size()-1;i++)
+   for(unsigned int i=0;i<methodArgs.size()-1;i++)
    {
-     if (!AconformsToB(actual->nth(i)->get_type(),methodArgs[i]))
+     if (!classtable->AconformsToB(actual->nth(i)->get_type(),methodArgs[i]))
      {
        classtable->semant_error();
        cerr << "Actual types of args of dynamic dispatch method do not conform to declared types" << endl;
@@ -836,7 +872,7 @@ void dispatch_class::inferTypes(ClassTable* classtable)
      }
    }
    //Set the return type
-   if (methodArgs.back().equal_string("SELF_TYPE",9)==0) set_type(className);
+   if (methodArgs.back()->equal_string("SELF_TYPE",9)==0) set_type(className);
    else set_type(methodArgs.back());
 }
 
@@ -845,8 +881,8 @@ void cond_class::inferTypes(ClassTable* classtable)
    pred->inferTypes(classtable);
    then_exp->inferTypes(classtable);
    else_exp->inferTypes(classtable);
-   if (pred->get_type().equal_string("Bool",4)!=0) cerr << "If predicate does not have type Bool!" << endl;
-   set_type(leastCommonAncestor(then_exp->get_type(),else_exp->get_type()));
+   if (pred->get_type()->equal_string("Bool",4)!=0) cerr << "If predicate does not have type Bool!" << endl;
+   set_type(classtable->leastCommonAncestor(then_exp->get_type(),else_exp->get_type()));
 }
 
 void loop_class::inferTypes(ClassTable* classtable)
@@ -855,7 +891,7 @@ void loop_class::inferTypes(ClassTable* classtable)
   body->inferTypes(classtable);
   if (pred->get_type()->equal_string("Bool",4)!=0)
   {
-    cerr << "Loop predicate must have type Bool!" << end;
+    cerr << "Loop predicate must have type Bool!" << endl;
     classtable->semant_error();
   }
   set_type(Object);
@@ -912,7 +948,7 @@ void divide_class::inferTypes(ClassTable* classtable)
 void neg_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
-   if (!e1->get_type().equal_string("Int",3))
+   if (!e1->get_type()->equal_string("Int",3))
    {
      classtable->semant_error();
      cerr << "Neg class should have Int type" << endl;
@@ -980,11 +1016,11 @@ void comp_class::inferTypes(ClassTable* classtable)
 void int_const_class::inferTypes(ClassTable* classtable)
 {
   //Check that token is an int
-  string tokenstr(token.get_string(),token.get_len());
+  std::string tokenstr(token->get_string(),token->get_len());
   bool ok = true;
-  for(int i=0;i<tokenstr.size();i++)
+  for(unsigned int i=0;i<tokenstr.size();i++)
   {
-    if ((char)tokenstr[i]<48) || ((char)tokenstr[i]>57))
+    if (((int)tokenstr[i]<48) || ((int)tokenstr[i]>57))
     {
       ok = false;
       break;
@@ -1012,7 +1048,7 @@ void string_const_class::inferTypes(ClassTable* classtable)
 
 void new__class::inferTypes(ClassTable* classtable)
 {
-  if (type_name.equal_string("SELF_TYPE",9)==0) set_type(classtable->classEnv.back());
+  if (type_name->equal_string("SELF_TYPE",9)==0) set_type(classtable->classEnv.back());
   else set_type(type_name);
 }
 
