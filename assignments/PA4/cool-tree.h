@@ -89,7 +89,7 @@ public:
    virtual Expression copy_Expression() = 0;
    virtual void collectTypes(ClassTable* classtable) = 0;
    virtual void inferTypes(ClassTable* classtable) = 0;
-
+   virtual bool isNULL() = 0;
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
 #endif
@@ -315,6 +315,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -342,6 +343,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -368,6 +370,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -394,6 +397,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -418,6 +422,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -442,6 +447,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -464,6 +470,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -492,6 +499,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -516,6 +524,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -540,6 +549,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -564,6 +574,7 @@ public:
    void dump(ostream& stream, int n);
      virtual void collectTypes(ClassTable* classtable);
      virtual void inferTypes(ClassTable* classtable);
+     virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -588,6 +599,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -610,6 +622,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -634,6 +647,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -658,6 +672,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -682,6 +697,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -704,6 +720,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -726,6 +743,8 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   void setToken(Symbol s){token = s;};
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -748,6 +767,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -770,6 +790,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -792,6 +813,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -814,6 +836,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -834,6 +857,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return true;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -856,6 +880,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
+   virtual bool isNULL() {return false;}
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
