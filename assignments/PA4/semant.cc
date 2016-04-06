@@ -798,6 +798,7 @@ void branch_class::inferTypes(ClassTable* classtable)
   *typeD = type_decl;
   classtable->objectEnv.addid(name,typeD);
   expr->inferTypes(classtable);
+  set_type(expr->get_type());
 }
 
 void assign_class::inferTypes(ClassTable* classtable)
@@ -902,6 +903,13 @@ void typcase_class::inferTypes(ClassTable* classtable)
    expr->inferTypes(classtable);
    for(int i = cases->first(); cases->more(i); i = cases->next(i))
      cases->nth(i)->inferTypes(classtable);
+   Symbol temp;
+   for(int i = cases->first(); cases->more(i); i = cases->next(i))
+   {
+     if (i==0) temp = cases->nth(i)->get_type();
+     else temp = classtable->leastCommonAncestor(temp,cases->nth(i)->get_type());
+   }
+   set_type(temp);
 }
 
 void block_class::inferTypes(ClassTable* classtable)
@@ -919,30 +927,95 @@ void let_class::inferTypes(ClassTable* classtable)
   classtable->objectEnv.addid(identifier,typeD);
   init->inferTypes(classtable);
   body->inferTypes(classtable);
+  Symbol t0prime;
+  if (type_decl->equal_string("SELF_TYPE",9)==0) t0prime = classtable->classEnv.back();
+  else t0prime = type_decl;
+  if (init->isNULL()==false)
+  {
+    Symbol e1 = init->get_type();
+    if (!classtable->AconformsToB(e1,t0prime))
+    {
+      cerr << "Let initialization does not conform to expected type!" << endl;
+      classtable->semant_error();
+    }
+  }
+  set_type(body->get_type());
 }
 
 void plus_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
+   Symbol t1 = e1->get_type();
+   Symbol t2 = e2->get_type();
+   if (t1->equal_string("Int",3)!=0)
+   {
+     cerr << "Plus operand must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   if (t2->equal_string("Int",3)!=0)
+   {
+     cerr << "Plus operand must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   set_type(Int);
 }
 
 void sub_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
+   Symbol t1 = e1->get_type();
+   Symbol t2 = e2->get_type();
+   if (t1->equal_string("Int",3)!=0)
+   {
+     cerr << "Plus operand must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   if (t2->equal_string("Int",3)!=0)
+   {
+     cerr << "Plus operand must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   set_type(Int);
 }
 
 void mul_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
+   Symbol t1 = e1->get_type();
+   Symbol t2 = e2->get_type();
+   if (t1->equal_string("Int",3)!=0)
+   {
+     cerr << "Plus operand must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   if (t2->equal_string("Int",3)!=0)
+   {
+     cerr << "Plus operand must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   set_type(Int);
 }
 
 void divide_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
+   Symbol t1 = e1->get_type();
+   Symbol t2 = e2->get_type();
+   if (t1->equal_string("Int",3)!=0)
+   {
+     cerr << "Plus operand must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   if (t2->equal_string("Int",3)!=0)
+   {
+     cerr << "Plus operand must have type Int!" << endl;
+     classtable->semant_error();
+   }
+   set_type(Int);
 }
 
 void neg_class::inferTypes(ClassTable* classtable)
