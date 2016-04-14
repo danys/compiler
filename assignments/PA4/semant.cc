@@ -525,34 +525,34 @@ ostream& ClassTable::semant_error()
 //First DFS pass that collects declared types
 void program_class::collectTypes(ClassTable* classtable)
 {
+    classtable->methodEnv.enterscope();
+    classtable->attrEnv.enterscope();
     for(int i = classes->first(); classes->more(i); i = classes->next(i))
     {
-      classtable->methodEnv.enterscope();
-      classtable->objectEnv.enterscope();
       classes->nth(i)->collectTypes(classtable);
-      classtable->methodEnv.exitscope();
-      classtable->objectEnv.exitscope();
     }
 }
 
 void class__class::collectTypes(ClassTable* classtable)
 {
   classtable->classEnv.push_back(name);
+  classtable->thisMethods = new SymbolTable<Symbol, std::vector<Symbol> >();
+  classtable->thisAttr = new SymbolTable<Symbol, Symbol>();
   for(int i = features->first(); features->more(i); i = features->next(i))
   {
-    classtable->methodEnv.enterscope();
-    classtable->objectEnv.enterscope();
     features->nth(i)->collectTypes(classtable);
-    classtable->objectEnv.exitscope();
-    classtable->methodEnv.exitscope();
   }
+  classtable->methodEnv.addid(name,classtable->thisMethods);
+  classtable->attrEnv.addid(name,classtable->thisAttr);
 }
 
 void method_class::collectTypes(ClassTable* classtable)
 {
+  for(int i = formals->first(); formals->more(i); i = formals->next(i))
+     formals->nth(i)->collectTypes(classtable);
+  expr->collectTypes(classtable);
   Formal formal;
-  SymbolTable<Symbol,std::vector<Symbol> >* table = 0;
-  std::vector<Symbol>* v = 0;
+  std::vector<Symbol>* v = new std::vector<Symbol>();
   for(int i=formals->first();formals->more(i);i=formals->next(i))
   {
     formal = formals->nth(i);
@@ -560,33 +560,24 @@ void method_class::collectTypes(ClassTable* classtable)
     v->push_back(type);
   }
   v->push_back(return_type);
-  table->addid(name,v);
-  classtable->methodEnv.addid(classtable->classEnv.at(classtable->classEnv.size()-1),table);
-  for(int i = formals->first(); formals->more(i); i = formals->next(i))
-     formals->nth(i)->collectTypes(classtable);
-   expr->collectTypes(classtable);
+  classtable->thisMethods->addid(name,v);
 }
 
 void attr_class::collectTypes(ClassTable* classtable)
 {
   Symbol* typeD = 0;
   *typeD = type_decl;
-  classtable->objectEnv.addid(name,typeD);
+  classtable->thisAttr->addid(name,typeD);
   init->collectTypes(classtable);
 }
 
 void formal_class::collectTypes(ClassTable* classtable)
 {
-  Symbol* typeD = 0;
-  *typeD = type_decl;
-  classtable->objectEnv.addid(name,typeD);
+  //nothing to do
 }
 
 void branch_class::collectTypes(ClassTable* classtable)
 {
-  Symbol* typeD = 0;
-  *typeD = type_decl;
-  classtable->objectEnv.addid(name,typeD);
   expr->collectTypes(classtable);
 }
 
@@ -637,9 +628,6 @@ void block_class::collectTypes(ClassTable* classtable)
 
 void let_class::collectTypes(ClassTable* classtable)
 {
-  Symbol* typeD = 0;
-  *typeD = type_decl;
-  classtable->objectEnv.addid(identifier,typeD);
   init->collectTypes(classtable);
   body->collectTypes(classtable);
 }
@@ -735,46 +723,29 @@ void object_class::collectTypes(ClassTable* classtable)
 //2nd pass: infer types
 void program_class::inferTypes(ClassTable* classtable)
 {
+    classtable->classEnv.clear();
     for(int i = classes->first(); classes->more(i); i = classes->next(i))
     {
-      classtable->methodEnv.enterscope();
-      classtable->objectEnv.enterscope();
       classes->nth(i)->inferTypes(classtable);
-      classtable->methodEnv.exitscope();
-      classtable->objectEnv.exitscope();
     }
 }
 
 void class__class::inferTypes(ClassTable* classtable)
 {
   classtable->classEnv.push_back(name);
+  objectEnv = attrEnv.lookup(name);
   for(int i = features->first(); features->more(i); i = features->next(i))
   {
-    classtable->methodEnv.enterscope();
-    classtable->objectEnv.enterscope();
     features->nth(i)->inferTypes(classtable);
-    classtable->objectEnv.exitscope();
-    classtable->methodEnv.exitscope();
   }
 }
 
 void method_class::inferTypes(ClassTable* classtable)
 {
-  Formal formal;
-  SymbolTable<Symbol,std::vector<Symbol> >* table = 0;
-  std::vector<Symbol>* v = 0;
-  for(int i=formals->first();formals->more(i);i=formals->next(i))
-  {
-    formal = formals->nth(i);
-    Symbol type = formal->getType();
-    v->push_back(type);
-  }
-  v->push_back(return_type);
-  table->addid(name,v);
-  classtable->methodEnv.addid(classtable->classEnv.at(classtable->classEnv.size()-1),table);
-  for(int i = formals->first(); formals->more(i); i = formals->next(i))
-     formals->nth(i)->inferTypes(classtable);
-   expr->inferTypes(classtable);
+  //TODO
+  /* Symbol tType;
+  if (type_decl.equal_string("SELF_TYPE",9)==0) tType = classEnv.back();
+  else tType = type_decl;*/
 }
 
 void attr_class::inferTypes(ClassTable* classtable)
@@ -794,9 +765,6 @@ void formal_class::inferTypes(ClassTable* classtable)
 
 void branch_class::inferTypes(ClassTable* classtable)
 {
-  Symbol* typeD = 0;
-  *typeD = type_decl;
-  classtable->objectEnv.addid(name,typeD);
   expr->inferTypes(classtable);
   set_type(expr->get_type());
 }

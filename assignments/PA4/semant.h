@@ -44,9 +44,15 @@ public:
   SymbolTable<Symbol, Symbol> objectEnv;
   SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > > methodEnv;
   std::vector<Symbol> classEnv;
+  SymbolTable<Symbol,SymbolTable<Symbol,Symbol> > attrEnv;
+  //Helper variable for setting up the method environment
+  SymbolTable<Symbol,std::vector<Symbol> >* thisMethods;
+  SymbolTable<Symbol,Symbol>* thisAttr;
   //Type checking helper methods
   bool AconformsToB(Symbol a, Symbol b);
   Symbol leastCommonAncestor(Symbol a, Symbol b);
+  std::vector<int> dfsPath(int x);
+  int lastCommonElement(std::vector<int> &a, std::vector<int> &b);
 };
 
 
