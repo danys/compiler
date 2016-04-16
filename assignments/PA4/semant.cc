@@ -537,7 +537,7 @@ void class__class::collectTypes(ClassTable* classtable)
 {
   classtable->classEnv.push_back(name);
   classtable->thisMethods = new SymbolTable<Symbol, std::vector<Symbol> >();
-  classtable->thisAttr = new SymbolTable<Symbol, Symbol>();
+  classtable->thisAttr = new SymbolTable<Symbol, Entry>();
   for(int i = features->first(); features->more(i); i = features->next(i))
   {
     features->nth(i)->collectTypes(classtable);
@@ -565,9 +565,7 @@ void method_class::collectTypes(ClassTable* classtable)
 
 void attr_class::collectTypes(ClassTable* classtable)
 {
-  Symbol* typeD = 0;
-  *typeD = type_decl;
-  classtable->thisAttr->addid(name,typeD);
+  classtable->thisAttr->addid(name,type_decl);
   init->collectTypes(classtable);
 }
 
@@ -733,7 +731,7 @@ void program_class::inferTypes(ClassTable* classtable)
 void class__class::inferTypes(ClassTable* classtable)
 {
   classtable->classEnv.push_back(name);
-  objectEnv = attrEnv.lookup(name);
+  classtable->objectEnv = *(classtable->attrEnv.lookup(name));
   for(int i = features->first(); features->more(i); i = features->next(i))
   {
     features->nth(i)->inferTypes(classtable);
@@ -742,30 +740,57 @@ void class__class::inferTypes(ClassTable* classtable)
 
 void method_class::inferTypes(ClassTable* classtable)
 {
-  //TODO
-  /* Symbol tType;
-  if (type_decl.equal_string("SELF_TYPE",9)==0) tType = classEnv.back();
-  else tType = type_decl;*/
+  classtable->objectEnv.enterscope();
+  classtable->objectEnv.addid(self,classtable->classEnv.back());
+  for(int i = formals->first(); formals->more(i); i = formals->next(i))
+  {
+    classtable->objectEnv.addid(formals->nth(i)->getName(),formals->nth(i)->getType());
+  } 
+  expr->inferTypes(classtable);
+  Symbol cmp;
+  if (return_type->equal_string("SELF_TYPE",9)==0) cmp = classtable->classEnv.back();
+  else cmp = return_type;
+  Symbol t0prime = expr->get_type();
+  if (!classtable->AconformsToB(t0prime,cmp))
+  {
+    cerr << "Method body type does not conform to method return type" << endl;
+    classtable->semant_error();
+  }
+  set_type(return_type);
+  classtable->objectEnv.exitscope();
 }
 
 void attr_class::inferTypes(ClassTable* classtable)
 {
-  Symbol* typeD = 0;
-  *typeD = type_decl;
-  classtable->objectEnv.addid(name,typeD);
-  init->inferTypes(classtable);
+  Symbol sym = classtable->objectEnv.lookup(name);
+  if (init->isNULL()) set_type(sym);
+  else
+  {
+    classtable->objectEnv.enterscope();
+    classtable->objectEnv.addid(self,classtable->classEnv.back());
+    init->inferTypes(classtable);
+    Symbol t1 = init->get_type();
+    if (!classtable->AconformsToB(t1,sym))
+    {
+      cerr << "Attribute initialization type does not conform to declared type" << endl;
+      classtable->semant_error();
+    }
+    classtable->objectEnv.exitscope();
+    set_type(sym);
+  }
 }
 
 void formal_class::inferTypes(ClassTable* classtable)
 {
-  Symbol* typeD = 0;
-  *typeD = type_decl;
-  classtable->objectEnv.addid(name,typeD);
+  classtable->objectEnv.addid(name,type_decl);
 }
 
 void branch_class::inferTypes(ClassTable* classtable)
 {
+  classtable->objectEnv.enterscope();
+  classtable->objectEnv.addid(name,type_decl);
   expr->inferTypes(classtable);
+  classtable->objectEnv.exitscope();
   set_type(expr->get_type());
 }
 
@@ -775,14 +800,14 @@ void assign_class::inferTypes(ClassTable* classtable)
    //OK now expr e1 should have a type t'
    Symbol tprimeType = expr->get_type();
    //Check if tprimtTpye is <= type of name
-   Symbol* t = classtable->objectEnv.lookup(name);
+   Symbol t = classtable->objectEnv.lookup(name);
    if (t==NULL)
    {
     cerr << "Type declaration for object not found anywhere." << endl;
     classtable->semant_error();
-    *t = Object; //default to object type
+    t = Object; //default to object type
    }
-   if (!classtable->AconformsToB(tprimeType, *t))
+   if (!classtable->AconformsToB(tprimeType, t))
    {
      cerr << "Assign class error: Assigned type does not conform to type of variable." << endl;
     classtable->semant_error();
@@ -890,24 +915,34 @@ void block_class::inferTypes(ClassTable* classtable)
 
 void let_class::inferTypes(ClassTable* classtable)
 {
-  Symbol* typeD = 0;
-  *typeD = type_decl;
-  classtable->objectEnv.addid(identifier,typeD);
-  init->inferTypes(classtable);
-  body->inferTypes(classtable);
   Symbol t0prime;
-  if (type_decl->equal_string("SELF_TYPE",9)==0) t0prime = classtable->classEnv.back();
-  else t0prime = type_decl;
-  if (init->isNULL()==false)
+  if (init->isNULL())
   {
-    Symbol e1 = init->get_type();
-    if (!classtable->AconformsToB(e1,t0prime))
+    if (type_decl->equal_string("SELF_TYPE",9)==0) t0prime = classtable->classEnv.back();
+    else t0prime = type_decl;
+    classtable->objectEnv.enterscope();
+    classtable->objectEnv.addid(identifier,t0prime);
+    body->inferTypes(classtable);
+    classtable->objectEnv.exitscope();
+    set_type(body->get_type());
+  }
+  else
+  {
+    if (type_decl->equal_string("SELF_TYPE",9)==0) t0prime = classtable->classEnv.back();
+    else t0prime = type_decl;
+    init->inferTypes(classtable);
+    Symbol t1 = init->get_type();
+    if (!classtable->AconformsToB(t1,t0prime))
     {
-      cerr << "Let initialization does not conform to expected type!" << endl;
+      cerr << "Let initialization type does not conform to declared type!" << endl;
       classtable->semant_error();
     }
+    classtable->objectEnv.enterscope();
+    classtable->objectEnv.addid(identifier,t0prime);
+    body->inferTypes(classtable);
+    classtable->objectEnv.exitscope();
+    set_type(body->get_type());
   }
-  set_type(body->get_type());
 }
 
 void plus_class::inferTypes(ClassTable* classtable)
@@ -1107,14 +1142,14 @@ void no_expr_class::inferTypes(ClassTable* classtable)
 
 void object_class::inferTypes(ClassTable* classtable)
 {
-  Symbol* t = classtable->objectEnv.lookup(name);
+  Symbol t = classtable->objectEnv.lookup(name);
   if (t==NULL)
   {
     cerr << "Type declaration for object not found anywhere." << endl;
     classtable->semant_error();
     set_type(Object); //default to object type
   }
-  else set_type(*t);
+  else set_type(t);
 }
 //End of 2nd phase
 

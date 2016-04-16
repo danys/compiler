@@ -41,13 +41,13 @@ public:
   std::vector<class__class*> classesVect;
   std::vector<std::string> parentClasses;
   //The three components of the environment
-  SymbolTable<Symbol, Symbol> objectEnv;
+  SymbolTable<Symbol, Entry> objectEnv;
   SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > > methodEnv;
   std::vector<Symbol> classEnv;
-  SymbolTable<Symbol,SymbolTable<Symbol,Symbol> > attrEnv;
+  SymbolTable<Symbol,SymbolTable<Symbol,Entry> > attrEnv;
   //Helper variable for setting up the method environment
   SymbolTable<Symbol,std::vector<Symbol> >* thisMethods;
-  SymbolTable<Symbol,Symbol>* thisAttr;
+  SymbolTable<Symbol,Entry>* thisAttr;
   //Type checking helper methods
   bool AconformsToB(Symbol a, Symbol b);
   Symbol leastCommonAncestor(Symbol a, Symbol b);

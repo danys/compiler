@@ -72,6 +72,7 @@ public:
    virtual void collectTypes(ClassTable* classtable) = 0;
    virtual void inferTypes(ClassTable* classtable) = 0;
    virtual Symbol getType() = 0;
+   virtual Symbol getName() = 0;
    virtual Symbol getID() = 0;
 
 #ifdef Formal_EXTRAS
@@ -263,6 +264,7 @@ public:
    void dump(ostream& stream, int n);
    virtual void collectTypes(ClassTable* classtable);
    virtual Symbol getType(){return type_decl;}
+   virtual Symbol getName(){return name;}
    virtual Symbol getID(){return name;}
    virtual void inferTypes(ClassTable* classtable);
 
