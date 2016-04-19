@@ -106,7 +106,7 @@ bool ClassTable::isDAG(int intId)
       }
     }
   }
-  if (noinc.size()>1) return false; //the DAG should have exactly one root node only
+  if (noinc.size()>1) {return false;} //the DAG should have exactly one root node only
   //Clone classGraph
   std::vector<std::vector<int> > classGraphCopy;
   for(int i=0;i<intId;i++)
@@ -128,8 +128,8 @@ bool ClassTable::isDAG(int intId)
   bool found;
   while(noinc.size()>0)
   {
-    nodeId = noinc[0];
-    noinc.erase(noinc.begin());
+    nodeId = noinc.back();
+    noinc.pop_back();
     endpoints = classGraphCopy[nodeId];
     //Loop through all the next nodes
     for(unsigned int i=0;i<endpoints.size();i++)
@@ -137,8 +137,9 @@ bool ClassTable::isDAG(int intId)
       nextNode = endpoints[i];
       found=false;
       //check if nextNode has no further incoming edges
-      for(int j=0;(j<intId) && (j!=nodeId);j++)
+      for(int j=0;j<intId;j++)
       {
+	if (j==nodeId) continue;
 	vect = classGraphCopy[j];
 	for(unsigned int k=0;k<vect.size();k++)
 	{
@@ -161,36 +162,48 @@ bool ClassTable::isDAG(int intId)
   return (nNodes==0);
 }
 
-//No hash table support before C++11 resort to simple array and slower O(N) access
+//O(N) search in list for element className
 int ClassTable::findClassNameInList(std::string className,std::vector<std::string> &list)
 {
   for(unsigned int i=0;i<list.size();i++) if (list[i].compare(className)==0) return i;
   return -1;
 }
 
-//Check if attributes are redefined a classe's subclasses
-bool ClassTable::redefinedAttributes(int nodeId, std::vector<attr_class*> attrList)
+bool ClassTable::hasSameAttr(int x, int y)
 {
-  //Check if this node's attributes redefine attributes of attrList
-  class__class* curClass = classesVect[nodeId];
-  Features features = curClass->get_features();
-  for(int i=features->first();features->more(i);i=features->next(i))
+  std::vector<Symbol> attrsX = attrStruct[x];
+  std::vector<Symbol> attrsY = attrStruct[y];
+  std::string xstr, ystr;
+  for(unsigned int i=0;i<attrsX.size();i++)
   {
-    Feature feature = features->nth(i);
-    if (feature->getNodeType()==1) continue; //this is a method definition => of no interest
-    attr_class* attrib = dynamic_cast<attr_class*>(feature);
-    //check if this attribute is in attrList already
-    for(unsigned int j=0;j<attrList.size();j++)
+    xstr.assign(attrsX[i]->get_string(),attrsX[i]->get_len());
+    for(unsigned int j=0;j<attrsY.size();j++)
     {
-      Symbol curName = attrList[j]->getName();
-      if (curName->equal_string(attrib->getName()->get_string(),attrib->getName()->get_len())==0) return true;
+      ystr.assign(attrsY[j]->get_string(),attrsY[j]->get_len());
+      if (xstr.compare(ystr)==0) return true;
     }
-    //Add this node's attributes to the attrList
-    attrList.push_back(attrib);
   }
-  //DFS recursion
-  std::vector<int> children = classGraph[nodeId];
-  for(unsigned int i=0;i<children.size();i++) if (redefinedAttributes(children[i],attrList)) return true;
+  return false;
+}
+
+//Check if attributes are redefined a classe's subclasses
+bool ClassTable::redefinedAttributes()
+{
+  std::vector<int> stack;
+  stack.push_back(rootId);
+  int curId;
+  std::vector<int> vtemp;
+  while(stack.size()>0)
+  {
+    curId = stack.back();
+    stack.pop_back();
+    vtemp = classGraph[curId];
+    for(unsigned int k=0;k<vtemp.size();k++)
+    {
+      stack.push_back(vtemp[k]);
+      if (hasSameAttr(curId,vtemp[k])) return true;
+    }
+  }
   return false;
 }
 
@@ -280,55 +293,50 @@ Symbol ClassTable::leastCommonAncestor(Symbol a, Symbol b)
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
   //Iterate through the classes to build the dependency graph
-  int /*intId=0,*/classId,parentId,tempId,pvectId; //unique id to assign to every class
+  int classId,parentId,tempId,pvectId; //unique id to assign to every class
   //Initialize empty graph
   for(int i=0;i<classes->len();i++)
   {
     std::vector<int> v;
     classGraph.push_back(v);
   }
-  classesVect.resize(classes->len());
-  for(int i=classes->first();classes->more(i);i=classes->next(i))
+  for(int i=classes->first();i<classes->more(i);i=classes->next(i))
   {
     //Extract the class name and parent class name from each class
-    Class_ classPointer = classes->nth(i);
-    class__class* classInfoPointer =  dynamic_cast<class__class*>(classPointer);
-    Symbol classNameS = classInfoPointer->get_name();
-    Symbol classParentS = classInfoPointer->get_parent();
+    Symbol classNameS = classes->nth(i)->getName();
+    Symbol classParentS = classes->nth(i)->getParent();
     char* className = classNameS->get_string();
     int classNameLen = classNameS->get_len();
     char* classParent = classParentS->get_string();
     int classParentLen = classParentS->get_len();
     std::string classNameStr(className,classNameLen);
     std::string classParentStr(classParent,classParentLen);
-    //Insert the class name and the parent's name into a hash table if they are not yet present
+    cout << "Class name = " << classNameStr << " parent name =  " << classParentStr << endl;
+    //Insert the class name and the parent's name into a list if they are not yet present
     //Insert the class name
     tempId = findClassNameInList(classNameStr,classesList);
     if (tempId==-1)//key not found => insert key-value pair of class name
     {
       classId = classesList.size();
       classesList.push_back(classNameStr);
-      //intId++;
-      classesVect.push_back(classInfoPointer);
       //check if this is the root node "Object"
-      if (classNameS->equal_string("Object",6)==0) rootId = tempId;
+      if (classNameStr.compare("Object")==0) rootId = classId;
+      std::vector<Symbol> svect;
+      for(int k=classes->nth(i)->get_features()->first();classes->nth(i)->get_features()->more(k);k=classes->nth(i)->get_features()->next(k))
+      {
+	if (classes->nth(i)->get_features()->nth(i)->getNodeType()==2)
+	{
+	  svect.push_back(classes->nth(i)->get_features()->nth(i)->getName());
+	}
+      }
+      attrStruct.push_back(svect);
     }
     else
     {
-      pvectId = findClassNameInList(classNameStr,parentClasses);
-      if (pvectId==-1)
+      if (findClassNameInList(classNameStr,parentsList)==-1)
       {
-	//Classes may not be redefined
-	semant_error(classInfoPointer);
-	cerr << error_stream << endl;
-	break;
-      }
-      else
-      {
-	//Parent class name encountered earlier
-	classesVect[tempId]=classInfoPointer;
-	//check if this is the root node "Object"
-	if (classNameS->equal_string("Object",6)==0) rootId = tempId;
+	cerr << "Classes may not be redefined!" << endl;
+	semant_error();
       }
     }
     //Insert the parent class name
@@ -337,8 +345,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     {
       parentId = classesList.size();
       classesList.push_back(classParentStr);
-      parentClasses.push_back(classParentStr);
-      //intId++;
+      parentsList.push_back(classParentStr);
     }
     else parentId = tempId;
     //Ids for the class and its parent are in classId and in parentId
@@ -364,7 +371,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
   {
     //Check if the graph has cycles
     //Topological sort
-    bool isOK = isDAG(classesList.size());
+    bool isOK = isDAG(classGraph.size());
     if (!isOK)
     {
       cerr << "Inheritance graph has cycles." << endl;
@@ -373,8 +380,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     else
     {
       //Check that no attributes are redefined in subclasses
-      std::vector<attr_class*> attrList;
-      if (redefinedAttributes(rootId,attrList))
+      if (redefinedAttributes())
       {
 	cerr << "Attributes are redefined in subclass." << endl;
 	semant_error();
@@ -537,7 +543,9 @@ void class__class::collectTypes(ClassTable* classtable)
 {
   classtable->classEnv.push_back(name);
   classtable->thisMethods = new SymbolTable<Symbol, std::vector<Symbol> >();
+  classtable->thisMethods->enterscope();
   classtable->thisAttr = new SymbolTable<Symbol, Entry>();
+  classtable->thisAttr->enterscope();
   for(int i = features->first(); features->more(i); i = features->next(i))
   {
     features->nth(i)->collectTypes(classtable);
@@ -1170,7 +1178,11 @@ void program_class::semant()
 {
     initialize_constants();
     Classes basicClasses = install_basic_classes();
-    classes = append_Classes(basicClasses,classes);
+    for(int i=basicClasses->first();basicClasses->more(i);i=basicClasses->next(i))
+    {
+      classes = append_Classes(classes,single_Classes(basicClasses->nth(i)));
+    }
+    //classes = append_Classes(basicClasses,classes);
     /* ClassTable constructor may do some semantic analysis */
     ClassTable *classtable = new ClassTable(classes);
     collectTypes(classtable);

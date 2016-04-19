@@ -39,6 +39,9 @@ public:
    virtual Class_ copy_Class_() = 0;
    virtual void collectTypes(ClassTable* classtable) = 0;
    virtual void inferTypes(ClassTable* classtable) = 0;
+   virtual Symbol getParent() = 0;
+   virtual Symbol getName() = 0;
+   virtual Features get_features() = 0;
 #ifdef Class__EXTRAS
    Class__EXTRAS
 #endif
@@ -55,6 +58,10 @@ public:
    virtual int getNodeType() = 0;
    virtual void collectTypes(ClassTable* classtable) = 0;
    virtual void inferTypes(ClassTable* classtable) = 0;
+   virtual Symbol getName() = 0;
+   Symbol type;
+   Symbol get_type() { return type; }
+   Feature set_type(Symbol s) { type = s; return this;}
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -105,8 +112,10 @@ public:
    tree_node *copy()		 { return copy_Case(); }
    virtual Case copy_Case() = 0;
    virtual void collectTypes(ClassTable* classtable) = 0;
-   virtual void inferTypes(ClassTable* classtable) = 0;
-
+   virtual void inferTypes(ClassTable* classtable) = 0; 
+   Symbol type;
+   Symbol get_type() { return type; }
+   Case set_type(Symbol s) { type = s; return this; }
 #ifdef Case_EXTRAS
    Case_EXTRAS
 #endif
@@ -176,6 +185,8 @@ public:
       features = a3;
       filename = a4;
    }
+   virtual Symbol getParent(){return parent;}
+   virtual Symbol getName(){return name;}
    Class_ copy_Class_();
    void dump(ostream& stream, int n);
    Symbol get_name(){return name;}
@@ -210,6 +221,7 @@ public:
    Feature copy_Feature();
    void dump(ostream& stream, int n);
    int getNodeType() {return 1;}
+   Symbol getName(){return name;}
    virtual void collectTypes(ClassTable* classtable);
    virtual void inferTypes(ClassTable* classtable);
 

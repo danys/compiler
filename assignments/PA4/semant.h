@@ -27,7 +27,7 @@ private:
   int findClassNameInList(std::string className,std::vector<std::string> &list);
   ostream& error_stream;
   bool isDAG(int intId);
-  bool redefinedAttributes(int nodeId, std::vector<attr_class*> attrList);
+  bool redefinedAttributes();
 
 public:
   ClassTable(Classes);
@@ -37,9 +37,9 @@ public:
   ostream& semant_error(Symbol filename, tree_node *t);
   std::vector<std::vector<int> > classGraph;
   int rootId;
+  std::vector<std::vector<Symbol> > attrStruct;
   std::vector<std::string> classesList;
-  std::vector<class__class*> classesVect;
-  std::vector<std::string> parentClasses;
+  std::vector<std::string> parentsList;
   //The three components of the environment
   SymbolTable<Symbol, Entry> objectEnv;
   SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > > methodEnv;
@@ -53,6 +53,7 @@ public:
   Symbol leastCommonAncestor(Symbol a, Symbol b);
   std::vector<int> dfsPath(int x);
   int lastCommonElement(std::vector<int> &a, std::vector<int> &b);
+  bool hasSameAttr(int x, int y);
 };
 
 
