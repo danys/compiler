@@ -211,11 +211,13 @@ bool ClassTable::AconformsToB(Symbol a, Symbol b)
 {
   //a is b or one of its descendants
   std::string astr(a->get_string(),a->get_len());
-  std::string bstr(a->get_string(),b->get_len());
+  std::string bstr(b->get_string(),b->get_len());
+  if (astr.compare(bstr)==0) return true;
+  cout << "Astr " << astr << " bstr " << bstr  << endl;
   int aId = findClassNameInList(astr,classesList);
   if (aId==-1)
   {
-    cerr << "Error finding " << astr << " class to check conformance with " << bstr << "class." << endl;
+    cerr << "Error finding " << astr << " class to check conformance with " << bstr << " class." << endl;
     return false;
   }
   int bId = findClassNameInList(bstr,classesList);
@@ -225,7 +227,8 @@ bool ClassTable::AconformsToB(Symbol a, Symbol b)
     return false;
   }
   //Find aId starting from bId
-  std::vector<int> stack = classGraph[bId];
+  std::vector<int> stack;
+  stack.push_back(bId);
   int t; //current node id
   std::vector<int> vtemp;
   while(stack.size()>0)
@@ -300,7 +303,7 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     std::vector<int> v;
     classGraph.push_back(v);
   }
-  for(int i=classes->first();i<classes->more(i);i=classes->next(i))
+  for(int i=classes->first();classes->more(i);i=classes->next(i))
   {
     //Extract the class name and parent class name from each class
     Symbol classNameS = classes->nth(i)->getName();
@@ -311,7 +314,6 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     int classParentLen = classParentS->get_len();
     std::string classNameStr(className,classNameLen);
     std::string classParentStr(classParent,classParentLen);
-    cout << "Class name = " << classNameStr << " parent name =  " << classParentStr << endl;
     //Insert the class name and the parent's name into a list if they are not yet present
     //Insert the class name
     tempId = findClassNameInList(classNameStr,classesList);
@@ -324,47 +326,51 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
       std::vector<Symbol> svect;
       for(int k=classes->nth(i)->get_features()->first();classes->nth(i)->get_features()->more(k);k=classes->nth(i)->get_features()->next(k))
       {
-	if (classes->nth(i)->get_features()->nth(i)->getNodeType()==2)
+	if (classes->nth(i)->get_features()->nth(k)->getNodeType()==2)
 	{
-	  svect.push_back(classes->nth(i)->get_features()->nth(i)->getName());
+	  svect.push_back(classes->nth(i)->get_features()->nth(k)->getName());
 	}
       }
       attrStruct.push_back(svect);
     }
     else
     {
+      classId = tempId;
       if (findClassNameInList(classNameStr,parentsList)==-1)
       {
 	cerr << "Classes may not be redefined!" << endl;
 	semant_error();
       }
     }
-    //Insert the parent class name
-    tempId = findClassNameInList(classParentStr,classesList);
-    if (tempId==-1)//key not found => insert key-value pair of parent class name
+    if (classNameStr.compare("Object")!=0)
     {
-      parentId = classesList.size();
-      classesList.push_back(classParentStr);
-      parentsList.push_back(classParentStr);
-    }
-    else parentId = tempId;
-    //Ids for the class and its parent are in classId and in parentId
-    //Insert parentId->classId branch in directed graph
-    std::vector<int> v = classGraph[parentId];
-    //Check whether the branch exists already in the graph
-    bool found=false;
-    for(unsigned int j=0;j<v.size();j++)
-    {
-      if (v[j]==classId)
+      //Insert the parent class name
+      tempId = findClassNameInList(classParentStr,classesList);
+      if (tempId==-1)//key not found => insert key-value pair of parent class name
       {
-	found=true;
-	break;
+	parentId = classesList.size();
+	classesList.push_back(classParentStr);
+	parentsList.push_back(classParentStr);
       }
-    }
-    if (!found) //if not found insert the branch
-    {
-      v.push_back(classId);
-      classGraph[parentId] = v;
+      else parentId = tempId;
+      //Ids for the class and its parent are in classId and in parentId
+      //Insert parentId->classId branch in directed graph
+      std::vector<int> v = classGraph[parentId];
+      //Check whether the branch exists already in the graph
+      bool found=false;
+      for(unsigned int j=0;j<v.size();j++)
+      {
+	if (v[j]==classId)
+	{
+	  found=true;
+	  break;
+	}
+      }
+      if (!found) //if not found insert the branch
+      {
+	v.push_back(classId);
+	classGraph[parentId] = v;
+      }
     }
   }
   if (semant_errors==0)
@@ -756,7 +762,7 @@ void method_class::inferTypes(ClassTable* classtable)
   } 
   expr->inferTypes(classtable);
   Symbol cmp;
-  if (return_type->equal_string("SELF_TYPE",9)==0) cmp = classtable->classEnv.back();
+  if (return_type->equal_string("SELF_TYPE",9)==1) cmp = classtable->classEnv.back();
   else cmp = return_type;
   Symbol t0prime = expr->get_type();
   if (!classtable->AconformsToB(t0prime,cmp))
@@ -847,7 +853,7 @@ void static_dispatch_class::inferTypes(ClassTable* classtable)
      }
    }
    //Set the return type
-   if (methodArgs.back()->equal_string("SELF_TYPE",9)==0) set_type(className);
+   if (methodArgs.back()->equal_string("SELF_TYPE",9)==1) set_type(className);
    else set_type(methodArgs.back());
 }
 
@@ -874,7 +880,7 @@ void dispatch_class::inferTypes(ClassTable* classtable)
      }
    }
    //Set the return type
-   if (methodArgs.back()->equal_string("SELF_TYPE",9)==0) set_type(className);
+   if (methodArgs.back()->equal_string("SELF_TYPE",9)==1) set_type(className);
    else set_type(methodArgs.back());
 }
 
@@ -883,7 +889,7 @@ void cond_class::inferTypes(ClassTable* classtable)
    pred->inferTypes(classtable);
    then_exp->inferTypes(classtable);
    else_exp->inferTypes(classtable);
-   if (pred->get_type()->equal_string("Bool",4)!=0) cerr << "If predicate does not have type Bool!" << endl;
+   if (pred->get_type()->equal_string("Bool",4)!=1) cerr << "If predicate does not have type Bool!" << endl;
    set_type(classtable->leastCommonAncestor(then_exp->get_type(),else_exp->get_type()));
 }
 
@@ -891,7 +897,7 @@ void loop_class::inferTypes(ClassTable* classtable)
 {
   pred->inferTypes(classtable);
   body->inferTypes(classtable);
-  if (pred->get_type()->equal_string("Bool",4)!=0)
+  if (pred->get_type()->equal_string("Bool",4)!=1)
   {
     cerr << "Loop predicate must have type Bool!" << endl;
     classtable->semant_error();
@@ -926,7 +932,7 @@ void let_class::inferTypes(ClassTable* classtable)
   Symbol t0prime;
   if (init->isNULL())
   {
-    if (type_decl->equal_string("SELF_TYPE",9)==0) t0prime = classtable->classEnv.back();
+    if (type_decl->equal_string("SELF_TYPE",9)==1) t0prime = classtable->classEnv.back();
     else t0prime = type_decl;
     classtable->objectEnv.enterscope();
     classtable->objectEnv.addid(identifier,t0prime);
@@ -936,7 +942,7 @@ void let_class::inferTypes(ClassTable* classtable)
   }
   else
   {
-    if (type_decl->equal_string("SELF_TYPE",9)==0) t0prime = classtable->classEnv.back();
+    if (type_decl->equal_string("SELF_TYPE",9)==1) t0prime = classtable->classEnv.back();
     else t0prime = type_decl;
     init->inferTypes(classtable);
     Symbol t1 = init->get_type();
@@ -959,12 +965,12 @@ void plus_class::inferTypes(ClassTable* classtable)
    e2->inferTypes(classtable);
    Symbol t1 = e1->get_type();
    Symbol t2 = e2->get_type();
-   if (t1->equal_string("Int",3)!=0)
+   if (t1->equal_string("Int",3)!=1)
    {
      cerr << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
-   if (t2->equal_string("Int",3)!=0)
+   if (t2->equal_string("Int",3)!=1)
    {
      cerr << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
@@ -978,12 +984,12 @@ void sub_class::inferTypes(ClassTable* classtable)
    e2->inferTypes(classtable);
    Symbol t1 = e1->get_type();
    Symbol t2 = e2->get_type();
-   if (t1->equal_string("Int",3)!=0)
+   if (t1->equal_string("Int",3)!=1)
    {
      cerr << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
-   if (t2->equal_string("Int",3)!=0)
+   if (t2->equal_string("Int",3)!=1)
    {
      cerr << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
@@ -997,12 +1003,12 @@ void mul_class::inferTypes(ClassTable* classtable)
    e2->inferTypes(classtable);
    Symbol t1 = e1->get_type();
    Symbol t2 = e2->get_type();
-   if (t1->equal_string("Int",3)!=0)
+   if (t1->equal_string("Int",3)!=1)
    {
      cerr << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
-   if (t2->equal_string("Int",3)!=0)
+   if (t2->equal_string("Int",3)!=1)
    {
      cerr << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
@@ -1016,12 +1022,12 @@ void divide_class::inferTypes(ClassTable* classtable)
    e2->inferTypes(classtable);
    Symbol t1 = e1->get_type();
    Symbol t2 = e2->get_type();
-   if (t1->equal_string("Int",3)!=0)
+   if (t1->equal_string("Int",3)!=1)
    {
      cerr << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
-   if (t2->equal_string("Int",3)!=0)
+   if (t2->equal_string("Int",3)!=1)
    {
      cerr << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
@@ -1044,7 +1050,7 @@ void lt_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
-   if ((e1->get_type()->equal_string("Int",3)!=0) && (e2->get_type()->equal_string("Int",3)!=0))
+   if ((e1->get_type()->equal_string("Int",3)!=1) && (e2->get_type()->equal_string("Int",3)!=1))
    {
      cerr << "Leq comparison operators must have type Int!" << endl;
      classtable->semant_error();
@@ -1058,14 +1064,14 @@ void eq_class::inferTypes(ClassTable* classtable)
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
    Symbol eqtype = e1->get_type();
-   if ((eqtype->equal_string("Int",3)!=0) && (eqtype->equal_string("String",6)!=0) && (eqtype->equal_string("Bool",4)!=0))
+   if ((eqtype->equal_string("Int",3)!=1) && (eqtype->equal_string("String",6)!=1) && (eqtype->equal_string("Bool",4)!=1))
    {
      cerr << "Eq class needs to have operands of type Int, String or Bool!" << endl;
      classtable->semant_error();
    }
    else
    {
-     if (e2->get_type()->equal_string(eqtype->get_string(),eqtype->get_len())!=0)
+     if (e2->get_type()->equal_string(eqtype->get_string(),eqtype->get_len())!=1)
      {
        cerr << "Eq operands must have the same type!" << endl;
        classtable->semant_error();
@@ -1078,7 +1084,7 @@ void leq_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
-   if ((e1->get_type()->equal_string("Int",3)!=0) && (e2->get_type()->equal_string("Int",3)!=0))
+   if ((e1->get_type()->equal_string("Int",3)!=1) && (e2->get_type()->equal_string("Int",3)!=1))
    {
      cerr << "Leq comparison operators must have type Int!" << endl;
      classtable->semant_error();
@@ -1089,7 +1095,7 @@ void leq_class::inferTypes(ClassTable* classtable)
 void comp_class::inferTypes(ClassTable* classtable)
 {
    e1->inferTypes(classtable);
-   if (e1->get_type()->equal_string("Bool",4)!=0)
+   if (e1->get_type()->equal_string("Bool",4)!=1)
    {
      cerr << "Not operand must have type Bool!" << endl;
      classtable->semant_error();
@@ -1132,7 +1138,7 @@ void string_const_class::inferTypes(ClassTable* classtable)
 
 void new__class::inferTypes(ClassTable* classtable)
 {
-  if (type_name->equal_string("SELF_TYPE",9)==0) set_type(classtable->classEnv.back());
+  if (type_name->equal_string("SELF_TYPE",9)==1) set_type(classtable->classEnv.back());
   else set_type(type_name);
 }
 
@@ -1187,6 +1193,7 @@ void program_class::semant()
     ClassTable *classtable = new ClassTable(classes);
     collectTypes(classtable);
     inferTypes(classtable);
+    dump_with_types(std::cout,1);
     if (classtable->errors()) {
 	cerr << "Compilation halted due to static semantic errors." << endl;
 	exit(1);
