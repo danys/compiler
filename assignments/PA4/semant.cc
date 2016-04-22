@@ -213,7 +213,6 @@ bool ClassTable::AconformsToB(Symbol a, Symbol b)
   std::string astr(a->get_string(),a->get_len());
   std::string bstr(b->get_string(),b->get_len());
   if (astr.compare(bstr)==0) return true;
-  cout << "Astr " << astr << " bstr " << bstr  << endl;
   int aId = findClassNameInList(astr,classesList);
   if (aId==-1)
   {
@@ -292,6 +291,17 @@ Symbol ClassTable::leastCommonAncestor(Symbol a, Symbol b)
   std::vector<int> bPath = dfsPath(bId);
   int ancestorId = lastCommonElement(aPath,bPath);
   return idtable.add_string(const_cast<char*>(classesList[ancestorId].c_str()),classesList[ancestorId].size());
+}
+
+bool ClassTable::isSameSymbol(Symbol a, Symbol b)
+{
+  char* nameA = a->get_string();
+  int lenA = a->get_len();
+  char* nameB = b->get_string();
+  int lenB = b->get_len();
+  std::string AStr(nameA,lenA);
+  std::string BStr(nameB,lenB);
+  return (AStr.compare(BStr)==0);
 }
 
 ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) {
@@ -738,6 +748,12 @@ void program_class::inferTypes(ClassTable* classtable)
     classtable->classEnv.clear();
     for(int i = classes->first(); classes->more(i); i = classes->next(i))
     {
+      Symbol namesym = classes->nth(i)->getName();
+      if (classtable->isSameSymbol(namesym,Object)) continue;
+      if (classtable->isSameSymbol(namesym,Str)) continue;
+      if (classtable->isSameSymbol(namesym,Int)) continue;
+      if (classtable->isSameSymbol(namesym,IO)) continue;
+      if (classtable->isSameSymbol(namesym,Bool)) continue;
       classes->nth(i)->inferTypes(classtable);
     }
 }
@@ -776,6 +792,11 @@ void method_class::inferTypes(ClassTable* classtable)
 
 void attr_class::inferTypes(ClassTable* classtable)
 {
+  if (name->equal_string("self",4)==1)
+  {
+    cerr << "An attribute cannot be named self!" << endl;
+    classtable->semant_error();
+  }
   Symbol sym = classtable->objectEnv.lookup(name);
   if (init->isNULL()) set_type(sym);
   else
@@ -820,21 +841,28 @@ void assign_class::inferTypes(ClassTable* classtable)
     cerr << "Type declaration for object not found anywhere." << endl;
     classtable->semant_error();
     t = Object; //default to object type
+    set_type(Object);
    }
-   if (!classtable->AconformsToB(tprimeType, t))
+   else
    {
-     cerr << "Assign class error: Assigned type does not conform to type of variable." << endl;
-    classtable->semant_error();
+     if (!classtable->AconformsToB(tprimeType, t))
+     {
+       cerr << "Assign class error: Assigned type " << tprimeType << " does not conform to type " << t <<  " of variable " << name  << "." << endl;
+       classtable->semant_error();
+     }
+     set_type(tprimeType);
    }
 }
 
 void static_dispatch_class::inferTypes(ClassTable* classtable)
 {
+  cout << "Stat dispatch start" << endl;
    expr->inferTypes(classtable);
    for(int i = actual->first(); actual->more(i); i = actual->next(i))
      actual->nth(i)->inferTypes(classtable);
    //Get the class from expr as a Symbol
    Symbol className = expr->get_type();
+   cout << "St disp expr class name = " << className->get_string() << endl;
    if (!classtable->AconformsToB(className,type_name))
    {
      cerr << "Static dispatch class does not conform to given class T" << endl;
@@ -865,7 +893,7 @@ void dispatch_class::inferTypes(ClassTable* classtable)
    //Get the class from expr as a Symbol
    Symbol className = expr->get_type();
    Symbol t0prime;
-   if (className->equal_string("SELF_TYPE",9)==0) t0prime = classtable->classEnv.back();
+   if (className->equal_string("SELF_TYPE",9)==1) t0prime = classtable->classEnv.back();
    else t0prime = className;
    SymbolTable<Symbol,std::vector<Symbol> >* methodsList = classtable->methodEnv.lookup(t0prime);
    std::vector<Symbol> methodArgs = *(methodsList->lookup(name));
@@ -1064,16 +1092,11 @@ void eq_class::inferTypes(ClassTable* classtable)
    e1->inferTypes(classtable);
    e2->inferTypes(classtable);
    Symbol eqtype = e1->get_type();
-   if ((eqtype->equal_string("Int",3)!=1) && (eqtype->equal_string("String",6)!=1) && (eqtype->equal_string("Bool",4)!=1))
+   if ((eqtype->equal_string("Int",3)==1) || (eqtype->equal_string("String",6)==1) || (eqtype->equal_string("Bool",4)==1))
    {
-     cerr << "Eq class needs to have operands of type Int, String or Bool!" << endl;
-     classtable->semant_error();
-   }
-   else
-   {
-     if (e2->get_type()->equal_string(eqtype->get_string(),eqtype->get_len())!=1)
+     if (!classtable->isSameSymbol(e2->get_type(),eqtype))
      {
-       cerr << "Eq operands must have the same type!" << endl;
+       cerr << "Eq class needs to have operands of type Int, String or Bool!" << endl;
        classtable->semant_error();
      }
    }
@@ -1150,8 +1173,7 @@ void isvoid_class::inferTypes(ClassTable* classtable)
 
 void no_expr_class::inferTypes(ClassTable* classtable)
 {
-  //set type to null
-  set_type(NULL);
+  set_type(No_type);
 }
 
 void object_class::inferTypes(ClassTable* classtable)
@@ -1184,16 +1206,16 @@ void program_class::semant()
 {
     initialize_constants();
     Classes basicClasses = install_basic_classes();
+    Classes temp = classes;
     for(int i=basicClasses->first();basicClasses->more(i);i=basicClasses->next(i))
     {
       classes = append_Classes(classes,single_Classes(basicClasses->nth(i)));
     }
-    //classes = append_Classes(basicClasses,classes);
     /* ClassTable constructor may do some semantic analysis */
     ClassTable *classtable = new ClassTable(classes);
     collectTypes(classtable);
     inferTypes(classtable);
-    dump_with_types(std::cout,1);
+    classes = temp;
     if (classtable->errors()) {
 	cerr << "Compilation halted due to static semantic errors." << endl;
 	exit(1);
