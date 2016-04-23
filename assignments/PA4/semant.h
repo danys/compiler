@@ -27,7 +27,7 @@ private:
   int findClassNameInList(std::string className,std::vector<std::string> &list);
   ostream& error_stream;
   bool isDAG(int intId);
-  bool redefinedAttributes();
+  bool redefinedAttributes(int &redefClassId,int &redefFeatureId);
 
 public:
   ClassTable(Classes);
@@ -44,6 +44,7 @@ public:
   SymbolTable<Symbol, Entry> objectEnv;
   SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > > methodEnv;
   std::vector<Symbol> classEnv;
+  Class_ currentClass;
   SymbolTable<Symbol,SymbolTable<Symbol,Entry> > attrEnv;
   //Helper variable for setting up the method environment
   SymbolTable<Symbol,std::vector<Symbol> >* thisMethods;
@@ -53,7 +54,10 @@ public:
   Symbol leastCommonAncestor(Symbol a, Symbol b);
   std::vector<int> dfsPath(int x);
   int lastCommonElement(std::vector<int> &a, std::vector<int> &b);
-  bool hasSameAttr(int x, int y);
+  int hasSameAttr(int x, int y);
+  bool isSameSymbol(Symbol a, Symbol b);
+  void printGraph();
+  void printAttrs();
 };
 
 

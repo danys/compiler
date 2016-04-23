@@ -169,39 +169,86 @@ int ClassTable::findClassNameInList(std::string className,std::vector<std::strin
   return -1;
 }
 
-bool ClassTable::hasSameAttr(int x, int y)
+int ClassTable::hasSameAttr(int x, int y)
 {
   std::vector<Symbol> attrsX = attrStruct[x];
   std::vector<Symbol> attrsY = attrStruct[y];
-  std::string xstr, ystr;
   for(unsigned int i=0;i<attrsX.size();i++)
   {
-    xstr.assign(attrsX[i]->get_string(),attrsX[i]->get_len());
     for(unsigned int j=0;j<attrsY.size();j++)
     {
-      ystr.assign(attrsY[j]->get_string(),attrsY[j]->get_len());
-      if (xstr.compare(ystr)==0) return true;
+      if (isSameSymbol(attrsX[i],attrsY[j])) return j;
     }
   }
-  return false;
+  return -1;
 }
 
-//Check if attributes are redefined a classe's subclasses
-bool ClassTable::redefinedAttributes()
+void ClassTable::printGraph()
 {
-  std::vector<int> stack;
+  for(int i=0;i<classGraph.size();i++)
+  {
+    cout << i << ": ";
+    std::vector<int> v = classGraph[i];
+    for(int j=0;j<v.size();j++)
+    {
+      cout << " " << v[j];
+    }
+    cout << endl;
+  }
+  for(int i=0;i<classesList.size();i++) cout << classesList[i] << endl;
+  cout << "OK" << endl;
+}
+
+void ClassTable::printAttrs()
+{
+  for(int i=0;i<attrStruct.size();i++)
+  {
+    std::vector<Symbol> v = attrStruct[i];
+    cout << i << ":";
+    for(int j=0;j<v.size();j++)
+    {
+      cout << " " << v[j];
+    }
+    cout << endl;
+  }
+}
+
+//Check if attributes are redefined in a classe's subclasses
+bool ClassTable::redefinedAttributes(int &redefClassId, int &redefFeatureId)
+{
+  //printGraph();
+  //printAttrs();
+  std::vector<int> stack,stack2;
   stack.push_back(rootId);
-  int curId;
-  std::vector<int> vtemp;
+  int curId,curId2,attrId;
+  std::vector<int> vtemp,vtemp2;
   while(stack.size()>0)
   {
     curId = stack.back();
+    //Embedded stack
+    stack2.push_back(curId);
+    while(stack2.size()>0)
+    {
+      curId2 = stack2.back();
+      if ((curId!=curId2) && ((attrId = hasSameAttr(curId,curId2))!=-1))
+      {
+	redefClassId=curId2;
+	redefFeatureId=attrId;
+	return true;
+      }
+      stack2.pop_back();
+      vtemp2 = classGraph[curId2];
+      for(unsigned int k=0;k<vtemp2.size();k++)
+      {
+	stack2.push_back(vtemp2[k]);
+      }
+    }
+    //Embedded stack
     stack.pop_back();
     vtemp = classGraph[curId];
     for(unsigned int k=0;k<vtemp.size();k++)
     {
       stack.push_back(vtemp[k]);
-      if (hasSameAttr(curId,vtemp[k])) return true;
     }
   }
   return false;
@@ -216,13 +263,13 @@ bool ClassTable::AconformsToB(Symbol a, Symbol b)
   int aId = findClassNameInList(astr,classesList);
   if (aId==-1)
   {
-    cerr << "Error finding " << astr << " class to check conformance with " << bstr << " class." << endl;
+    //cerr << "Error finding " << astr << " class to check conformance with " << bstr << " class." << endl;
     return false;
   }
   int bId = findClassNameInList(bstr,classesList);
   if (bId==-1)
   {
-    cerr << "Error finding " << bstr << " class to check if " << astr << "class conforms to it." << endl;
+    //cerr << "Error finding " << bstr << " class to check if " << astr << "class conforms to it." << endl;
     return false;
   }
   //Find aId starting from bId
@@ -348,8 +395,20 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
       classId = tempId;
       if (findClassNameInList(classNameStr,parentsList)==-1)
       {
-	cerr << "Classes may not be redefined!" << endl;
+	cerr << classes->nth(i)->get_filename() << ":" << classes->nth(i)->get_line_number()<< ": " << "Classes may not be redefined!" << endl;
 	semant_error();
+      }
+      else
+      {
+	std::vector<Symbol> svect;
+	for(int k=classes->nth(i)->get_features()->first();classes->nth(i)->get_features()->more(k);k=classes->nth(i)->get_features()->next(k))
+	{
+	  if (classes->nth(i)->get_features()->nth(k)->getNodeType()==2)
+	  {
+	    svect.push_back(classes->nth(i)->get_features()->nth(k)->getName());
+	  }
+	}
+	attrStruct[classId] = svect;
       }
     }
     if (classNameStr.compare("Object")!=0)
@@ -361,8 +420,11 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
 	parentId = classesList.size();
 	classesList.push_back(classParentStr);
 	parentsList.push_back(classParentStr);
+	std::vector<Symbol> svect;
+	attrStruct.push_back(svect);
       }
       else parentId = tempId;
+      if (classParentStr.compare("Object")==0) rootId = parentId;
       //Ids for the class and its parent are in classId and in parentId
       //Insert parentId->classId branch in directed graph
       std::vector<int> v = classGraph[parentId];
@@ -385,20 +447,45 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
   }
   if (semant_errors==0)
   {
+    //Check if class main is defined
+    bool mainDef=false;
+    for(unsigned int i=0;i<classesList.size();i++) if (classesList[i].compare("Main")==0) mainDef=true;
+    if (!mainDef)
+    {
+      cerr << "Class Main is not defined." << endl;
+      semant_error();
+    }
     //Check if the graph has cycles
     //Topological sort
     bool isOK = isDAG(classGraph.size());
     if (!isOK)
     {
-      cerr << "Inheritance graph has cycles." << endl;
+      cerr << classes->nth(0)->get_filename() << ":" << classes->nth(0)->get_line_number()<< ": " << "Inheritance graph has cycles." << endl;
       semant_error();
     }
     else
     {
       //Check that no attributes are redefined in subclasses
-      if (redefinedAttributes())
+      int redefClassId=0, redefFeatureId=0;
+      if (redefinedAttributes(redefClassId, redefFeatureId))
       {
-	cerr << "Attributes are redefined in subclass." << endl;
+	//Search for class and attribute in tree
+	for(int k=classes->first();classes->more(k);k=classes->next(k))
+	{
+	  if (classes->nth(k)->getName()->equal_string((char*)classesList[redefClassId].c_str(),classesList[redefClassId].size())==1)
+	  {
+	    redefClassId = k;
+	    break;
+	  }
+	}
+	//Found class look for attribute
+	int cc=-1;
+	for(int k=classes->nth(redefClassId)->get_features()->first();classes->nth(redefClassId)->get_features()->more(k);k=classes->nth(redefClassId)->get_features()->next(k))
+	{
+	  if (classes->nth(redefClassId)->get_features()->nth(k)->getNodeType()==2) cc++;
+	  if (cc==redefFeatureId) {redefFeatureId=k;break;}
+	}
+	cerr << classes->nth(redefClassId)->get_filename() << ":" << classes->nth(redefClassId)->get_features()->nth(redefFeatureId)->get_line_number()<< ": " << "Attributes are redefined in subclass." << endl;
 	semant_error();
       }
     }
@@ -754,6 +841,7 @@ void program_class::inferTypes(ClassTable* classtable)
       if (classtable->isSameSymbol(namesym,Int)) continue;
       if (classtable->isSameSymbol(namesym,IO)) continue;
       if (classtable->isSameSymbol(namesym,Bool)) continue;
+      classtable->currentClass = classes->nth(i);
       classes->nth(i)->inferTypes(classtable);
     }
 }
@@ -783,7 +871,7 @@ void method_class::inferTypes(ClassTable* classtable)
   Symbol t0prime = expr->get_type();
   if (!classtable->AconformsToB(t0prime,cmp))
   {
-    cerr << "Method body type does not conform to method return type" << endl;
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Method body type does not conform to method return type" << endl;
     classtable->semant_error();
   }
   set_type(return_type);
@@ -794,7 +882,7 @@ void attr_class::inferTypes(ClassTable* classtable)
 {
   if (name->equal_string("self",4)==1)
   {
-    cerr << "An attribute cannot be named self!" << endl;
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "An attribute cannot be named self!" << endl;
     classtable->semant_error();
   }
   Symbol sym = classtable->objectEnv.lookup(name);
@@ -807,7 +895,7 @@ void attr_class::inferTypes(ClassTable* classtable)
     Symbol t1 = init->get_type();
     if (!classtable->AconformsToB(t1,sym))
     {
-      cerr << "Attribute initialization type does not conform to declared type" << endl;
+      cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Attribute initialization type does not conform to declared type" << endl;
       classtable->semant_error();
     }
     classtable->objectEnv.exitscope();
@@ -838,7 +926,7 @@ void assign_class::inferTypes(ClassTable* classtable)
    Symbol t = classtable->objectEnv.lookup(name);
    if (t==NULL)
    {
-    cerr << "Type declaration for object not found anywhere." << endl;
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Type declaration for object not found anywhere." << endl;
     classtable->semant_error();
     t = Object; //default to object type
     set_type(Object);
@@ -847,7 +935,7 @@ void assign_class::inferTypes(ClassTable* classtable)
    {
      if (!classtable->AconformsToB(tprimeType, t))
      {
-       cerr << "Assign class error: Assigned type " << tprimeType << " does not conform to type " << t <<  " of variable " << name  << "." << endl;
+       cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Assign class error: Assigned type " << tprimeType << " does not conform to type " << t <<  " of variable " << name  << "." << endl;
        classtable->semant_error();
      }
      set_type(tprimeType);
@@ -856,19 +944,23 @@ void assign_class::inferTypes(ClassTable* classtable)
 
 void static_dispatch_class::inferTypes(ClassTable* classtable)
 {
-  cout << "Stat dispatch start" << endl;
    expr->inferTypes(classtable);
    for(int i = actual->first(); actual->more(i); i = actual->next(i))
      actual->nth(i)->inferTypes(classtable);
    //Get the class from expr as a Symbol
    Symbol className = expr->get_type();
-   cout << "St disp expr class name = " << className->get_string() << endl;
    if (!classtable->AconformsToB(className,type_name))
    {
-     cerr << "Static dispatch class does not conform to given class T" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Static dispatch class does not conform to given class T" << endl;
      classtable->semant_error();
    }
    SymbolTable<Symbol,std::vector<Symbol> >* methodsList = classtable->methodEnv.lookup(type_name);
+   if ((classtable->methodEnv.probe(type_name)==NULL) || (methodsList->lookup(name)==NULL))
+   {
+      cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Dispatch object or method not found!" << endl;
+       classtable->semant_error();
+       return;
+   }
    std::vector<Symbol> methodArgs = *(methodsList->lookup(name));
    //Check that all actual types conform to the types of methodArgs
    for(unsigned int i=0;i<methodArgs.size()-1;i++)
@@ -876,7 +968,7 @@ void static_dispatch_class::inferTypes(ClassTable* classtable)
      if (!classtable->AconformsToB(actual->nth(i)->get_type(),methodArgs[i]))
      {
        classtable->semant_error();
-       cerr << "Actual types of args of dynamic dispatch method do not conform to declared types" << endl;
+       cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Actual types of args of dynamic dispatch method do not conform to declared types" << endl;
        break;
      }
    }
@@ -895,7 +987,19 @@ void dispatch_class::inferTypes(ClassTable* classtable)
    Symbol t0prime;
    if (className->equal_string("SELF_TYPE",9)==1) t0prime = classtable->classEnv.back();
    else t0prime = className;
+   if (classtable->methodEnv.probe(t0prime)==NULL)
+   {
+      cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Dispatch object not found!" << endl;
+       classtable->semant_error();
+       return;
+   }
    SymbolTable<Symbol,std::vector<Symbol> >* methodsList = classtable->methodEnv.lookup(t0prime);
+   if (methodsList->lookup(name)==NULL)
+   {
+      cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Dispatch method not defined on expression type!" << endl;
+       classtable->semant_error();
+       return;
+   }
    std::vector<Symbol> methodArgs = *(methodsList->lookup(name));
    //Check that all actual types conform to the types of methodArgs
    for(unsigned int i=0;i<methodArgs.size()-1;i++)
@@ -903,7 +1007,7 @@ void dispatch_class::inferTypes(ClassTable* classtable)
      if (!classtable->AconformsToB(actual->nth(i)->get_type(),methodArgs[i]))
      {
        classtable->semant_error();
-       cerr << "Actual types of args of dynamic dispatch method do not conform to declared types" << endl;
+       cerr << classtable->currentClass->get_filename() << ":" << get_line_number() << ": " << "Actual types of args of dynamic dispatch method do not conform to declared types" << endl;
        break;
      }
    }
@@ -917,7 +1021,7 @@ void cond_class::inferTypes(ClassTable* classtable)
    pred->inferTypes(classtable);
    then_exp->inferTypes(classtable);
    else_exp->inferTypes(classtable);
-   if (pred->get_type()->equal_string("Bool",4)!=1) cerr << "If predicate does not have type Bool!" << endl;
+   if (pred->get_type()->equal_string("Bool",4)!=1) cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "If predicate does not have type Bool!" << endl;
    set_type(classtable->leastCommonAncestor(then_exp->get_type(),else_exp->get_type()));
 }
 
@@ -927,7 +1031,7 @@ void loop_class::inferTypes(ClassTable* classtable)
   body->inferTypes(classtable);
   if (pred->get_type()->equal_string("Bool",4)!=1)
   {
-    cerr << "Loop predicate must have type Bool!" << endl;
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number() << ": " << "Loop predicate must have type Bool!" << endl;
     classtable->semant_error();
   }
   set_type(Object);
@@ -976,7 +1080,7 @@ void let_class::inferTypes(ClassTable* classtable)
     Symbol t1 = init->get_type();
     if (!classtable->AconformsToB(t1,t0prime))
     {
-      cerr << "Let initialization type does not conform to declared type!" << endl;
+      cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Let initialization type does not conform to declared type!" << endl;
       classtable->semant_error();
     }
     classtable->objectEnv.enterscope();
@@ -995,12 +1099,12 @@ void plus_class::inferTypes(ClassTable* classtable)
    Symbol t2 = e2->get_type();
    if (t1->equal_string("Int",3)!=1)
    {
-     cerr << "Plus operand must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
    if (t2->equal_string("Int",3)!=1)
    {
-     cerr << "Plus operand must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
    set_type(Int);
@@ -1014,12 +1118,12 @@ void sub_class::inferTypes(ClassTable* classtable)
    Symbol t2 = e2->get_type();
    if (t1->equal_string("Int",3)!=1)
    {
-     cerr << "Plus operand must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
    if (t2->equal_string("Int",3)!=1)
    {
-     cerr << "Plus operand must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
    set_type(Int);
@@ -1033,12 +1137,12 @@ void mul_class::inferTypes(ClassTable* classtable)
    Symbol t2 = e2->get_type();
    if (t1->equal_string("Int",3)!=1)
    {
-     cerr << "Plus operand must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
    if (t2->equal_string("Int",3)!=1)
    {
-     cerr << "Plus operand must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
    set_type(Int);
@@ -1052,12 +1156,12 @@ void divide_class::inferTypes(ClassTable* classtable)
    Symbol t2 = e2->get_type();
    if (t1->equal_string("Int",3)!=1)
    {
-     cerr << "Plus operand must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
    if (t2->equal_string("Int",3)!=1)
    {
-     cerr << "Plus operand must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Plus operand must have type Int!" << endl;
      classtable->semant_error();
    }
    set_type(Int);
@@ -1069,7 +1173,7 @@ void neg_class::inferTypes(ClassTable* classtable)
    if (!e1->get_type()->equal_string("Int",3))
    {
      classtable->semant_error();
-     cerr << "Neg class should have Int type" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Neg class should have Int type" << endl;
    }
    set_type(Int);
 }
@@ -1080,7 +1184,7 @@ void lt_class::inferTypes(ClassTable* classtable)
    e2->inferTypes(classtable);
    if ((e1->get_type()->equal_string("Int",3)!=1) && (e2->get_type()->equal_string("Int",3)!=1))
    {
-     cerr << "Leq comparison operators must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Leq comparison operators must have type Int!" << endl;
      classtable->semant_error();
    }
    set_type(Bool);
@@ -1096,7 +1200,7 @@ void eq_class::inferTypes(ClassTable* classtable)
    {
      if (!classtable->isSameSymbol(e2->get_type(),eqtype))
      {
-       cerr << "Eq class needs to have operands of type Int, String or Bool!" << endl;
+       cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Eq class needs to have operands of type Int, String or Bool!" << endl;
        classtable->semant_error();
      }
    }
@@ -1109,7 +1213,7 @@ void leq_class::inferTypes(ClassTable* classtable)
    e2->inferTypes(classtable);
    if ((e1->get_type()->equal_string("Int",3)!=1) && (e2->get_type()->equal_string("Int",3)!=1))
    {
-     cerr << "Leq comparison operators must have type Int!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": " << "Leq comparison operators must have type Int!" << endl;
      classtable->semant_error();
    }
    set_type(Bool);
@@ -1120,7 +1224,7 @@ void comp_class::inferTypes(ClassTable* classtable)
    e1->inferTypes(classtable);
    if (e1->get_type()->equal_string("Bool",4)!=1)
    {
-     cerr << "Not operand must have type Bool!" << endl;
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Not operand must have type Bool!" << endl;
      classtable->semant_error();
    }
    set_type(Bool);
@@ -1178,10 +1282,15 @@ void no_expr_class::inferTypes(ClassTable* classtable)
 
 void object_class::inferTypes(ClassTable* classtable)
 {
+  if (classtable->isSameSymbol(name,self))
+  {
+    set_type(SELF_TYPE);
+    return;
+  }
   Symbol t = classtable->objectEnv.lookup(name);
   if (t==NULL)
   {
-    cerr << "Type declaration for object not found anywhere." << endl;
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number() << ": " << "Type declaration for object not found anywhere." << endl;
     classtable->semant_error();
     set_type(Object); //default to object type
   }
