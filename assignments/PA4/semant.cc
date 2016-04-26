@@ -374,6 +374,12 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     //Insert the class name and the parent's name into a list if they are not yet present
     //Insert the class name
     tempId = findClassNameInList(classNameStr,classesList);
+    //Basic classes may not be redefined
+    if (classNameStr.compare("SELF_TYPE")==0)
+    {
+      cerr << classes->nth(i)->get_filename() << ":" << classes->nth(i)->get_line_number()<< ": " << "Classes may not be redefined!" << endl;
+      semant_error();
+    }
     if (tempId==-1)//key not found => insert key-value pair of class name
     {
       classId = classesList.size();
@@ -393,10 +399,25 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
     else
     {
       classId = tempId;
+      //Classes may not be redefined
       if (findClassNameInList(classNameStr,parentsList)==-1)
       {
-	cerr << classes->nth(i)->get_filename() << ":" << classes->nth(i)->get_line_number()<< ": " << "Classes may not be redefined!" << endl;
+	if (i>classes->len()-6) //i is in the range of the basic classes
+	{
+	  for(int z=classes->first();classes->more(z);z=classes->next(z))
+	  {
+	    if (classes->nth(z)->getName()->equal_string((char*)classNameStr.c_str(),classNameStr.size())==1)
+	      {
+		cerr << classes->nth(z)->get_filename() << ":" << classes->nth(z)->get_line_number()<< ": " << "Classes may not be redefined!" << endl;
 	semant_error();
+	      }
+	  }
+	}
+	else
+	{
+	  cerr << classes->nth(i)->get_filename() << ":" << classes->nth(i)->get_line_number()<< ": " << "Classes may not be redefined!" << endl;
+	semant_error();
+	}
       }
       else
       {
@@ -833,6 +854,7 @@ void object_class::collectTypes(ClassTable* classtable)
 void program_class::inferTypes(ClassTable* classtable)
 {
     classtable->classEnv.clear();
+    std::string fileN;
     for(int i = classes->first(); classes->more(i); i = classes->next(i))
     {
       Symbol namesym = classes->nth(i)->getName();
@@ -842,6 +864,8 @@ void program_class::inferTypes(ClassTable* classtable)
       if (classtable->isSameSymbol(namesym,IO)) continue;
       if (classtable->isSameSymbol(namesym,Bool)) continue;
       classtable->currentClass = classes->nth(i);
+      fileN.assign(classes->nth(i)->get_filename()->get_string(),classes->nth(i)->get_filename()->get_len());
+      classtable->currentFileName = fileN;
       classes->nth(i)->inferTypes(classtable);
     }
 }
@@ -875,6 +899,14 @@ void method_class::inferTypes(ClassTable* classtable)
     classtable->semant_error();
   }
   set_type(return_type);
+  std::string typStr;
+  typStr.assign((char*)return_type->get_string(),return_type->get_len());
+  if (classtable->findClassNameInList(typStr,classtable->classesList)==-1)
+  {
+    cerr << classtable->currentClass->get_filename();
+    cerr << ":" << get_line_number() << ": "  << "Undefined return type " << type_name << " !" << endl;
+    classtable->semant_error();
+  }
   classtable->objectEnv.exitscope();
 }
 
@@ -922,7 +954,7 @@ void assign_class::inferTypes(ClassTable* classtable)
    expr->inferTypes(classtable);
    //OK now expr e1 should have a type t'
    Symbol tprimeType = expr->get_type();
-   //Check if tprimtTpye is <= type of name
+   //Check if tprimeType is <= type of name
    Symbol t = classtable->objectEnv.lookup(name);
    if (t==NULL)
    {
@@ -987,24 +1019,48 @@ void dispatch_class::inferTypes(ClassTable* classtable)
    Symbol t0prime;
    if (className->equal_string("SELF_TYPE",9)==1) t0prime = classtable->classEnv.back();
    else t0prime = className;
-   if (classtable->methodEnv.probe(t0prime)==NULL)
+   if (classtable->methodEnv.lookup(t0prime)==NULL)
    {
-      cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Dispatch object not found!" << endl;
-       classtable->semant_error();
-       return;
+     cerr << classtable->currentFileName << ":";
+     cerr << get_line_number() << ": "  << "Dispatch object not found!" << endl;
+     classtable->semant_error();
+     return;
    }
-   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = classtable->methodEnv.lookup(t0prime);
-   if (methodsList->lookup(name)==NULL)
+   std::string t0primestr(t0prime->get_string(),t0prime->get_len());
+   int t0primeId = classtable->findClassNameInList(t0primestr,classtable->classesList);
+   std::vector<int> path = classtable->dfsPath(t0primeId);
+   bool foundMethod=false;
+   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = NULL;
+   std::vector<Symbol> methodArgs;
+   Symbol classType;
+   std::string typeStr;
+   for(int i=path.size()-1;i>=0;i--)
    {
-      cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Dispatch method not defined on expression type!" << endl;
-       classtable->semant_error();
-       return;
+     typeStr = classtable->classesList[path[i]];
+     classType = idtable.add_string((char*)typeStr.c_str(),typeStr.size());
+     methodsList = classtable->methodEnv.lookup(classType);
+     if (methodsList->lookup(name)!=NULL)
+     {
+       methodArgs = *(methodsList->lookup(name));
+       foundMethod = true;
+       break;
+     }
    }
-   std::vector<Symbol> methodArgs = *(methodsList->lookup(name));
+   if (!foundMethod)
+   {
+     cerr << classtable->currentClass->get_filename();
+     cerr << ":" << get_line_number() << ": ";
+     cerr << "Dispatch method not defined on expression type!" << endl;
+     classtable->semant_error();
+     return;
+   }
    //Check that all actual types conform to the types of methodArgs
+   Symbol argType;
    for(unsigned int i=0;i<methodArgs.size()-1;i++)
    {
-     if (!classtable->AconformsToB(actual->nth(i)->get_type(),methodArgs[i]))
+     if (actual->nth(i)->get_type()->equal_string("SELF_TYPE",9)==1) argType = classtable->classEnv.back();
+     else argType = actual->nth(i)->get_type();
+     if (!classtable->AconformsToB(argType,methodArgs[i]))
      {
        classtable->semant_error();
        cerr << classtable->currentClass->get_filename() << ":" << get_line_number() << ": " << "Actual types of args of dynamic dispatch method do not conform to declared types" << endl;
@@ -1258,20 +1314,29 @@ void bool_const_class::inferTypes(ClassTable* classtable)
 
 void string_const_class::inferTypes(ClassTable* classtable)
 {
-  //Check that token is a string
-  //Differentiate between IO and String class here?
   set_type(Str);
 }
 
 void new__class::inferTypes(ClassTable* classtable)
 {
-  if (type_name->equal_string("SELF_TYPE",9)==1) set_type(classtable->classEnv.back());
-  else set_type(type_name);
+  if (type_name->equal_string("SELF_TYPE",9)==1) set_type(SELF_TYPE);
+  else
+  {
+    std::string typStr;
+    typStr.assign((char*)type_name->get_string(),type_name->get_len());
+    if (classtable->findClassNameInList(typStr,classtable->classesList)==-1)
+    {
+      cerr << classtable->currentClass->get_filename();
+      cerr << ":" << /*get_line_number() <<*/ ": "  << "New used with undefined class " << type_name << " !" << endl;
+      classtable->semant_error();
+    }
+    set_type(type_name);
+  }
 }
 
 void isvoid_class::inferTypes(ClassTable* classtable)
 {
-   e1->inferTypes(classtable);
+  e1->inferTypes(classtable);
    set_type(Bool);
 }
 
@@ -1287,14 +1352,15 @@ void object_class::inferTypes(ClassTable* classtable)
     set_type(SELF_TYPE);
     return;
   }
-  Symbol t = classtable->objectEnv.lookup(name);
-  if (t==NULL)
+  Symbol nameType = classtable->objectEnv.lookup(name);
+  if (nameType==NULL)
   {
     cerr << classtable->currentClass->get_filename() << ":" << get_line_number() << ": " << "Type declaration for object not found anywhere." << endl;
     classtable->semant_error();
     set_type(Object); //default to object type
-  }
-  else set_type(t);
+     return;
+   }
+   else set_type(nameType);
 }
 //End of 2nd phase
 

@@ -24,7 +24,6 @@ typedef ClassTable *ClassTableP;
 class ClassTable {
 private:
   int semant_errors;
-  int findClassNameInList(std::string className,std::vector<std::string> &list);
   ostream& error_stream;
   bool isDAG(int intId);
   bool redefinedAttributes(int &redefClassId,int &redefFeatureId);
@@ -45,6 +44,7 @@ public:
   SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > > methodEnv;
   std::vector<Symbol> classEnv;
   Class_ currentClass;
+  std::string currentFileName;
   SymbolTable<Symbol,SymbolTable<Symbol,Entry> > attrEnv;
   //Helper variable for setting up the method environment
   SymbolTable<Symbol,std::vector<Symbol> >* thisMethods;
@@ -56,6 +56,7 @@ public:
   int lastCommonElement(std::vector<int> &a, std::vector<int> &b);
   int hasSameAttr(int x, int y);
   bool isSameSymbol(Symbol a, Symbol b);
+  int findClassNameInList(std::string className,std::vector<std::string> &list);
   void printGraph();
   void printAttrs();
 };
