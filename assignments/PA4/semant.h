@@ -57,6 +57,7 @@ public:
   int hasSameAttr(int x, int y);
   bool isSameSymbol(Symbol a, Symbol b);
   int findClassNameInList(std::string className,std::vector<std::string> &list);
+  Symbol getTypeFromHierarchy(Symbol currentClass, Symbol attrName);
   void printGraph();
   void printAttrs();
 };

@@ -258,20 +258,22 @@ bool ClassTable::AconformsToB(Symbol a, Symbol b)
 {
   //a is b or one of its descendants
   std::string astr(a->get_string(),a->get_len());
+  if (astr.compare("SELF_TYPE")==0)
+  {
+    a = currentClass->getName();
+    astr.assign(a->get_string(),a->get_len());
+  }
   std::string bstr(b->get_string(),b->get_len());
+  if (bstr.compare("SELF_TYPE")==0)
+  {
+    b = currentClass->getName();
+    bstr.assign(b->get_string(),b->get_len());
+  }
   if (astr.compare(bstr)==0) return true;
   int aId = findClassNameInList(astr,classesList);
-  if (aId==-1)
-  {
-    //cerr << "Error finding " << astr << " class to check conformance with " << bstr << " class." << endl;
-    return false;
-  }
+  if (aId==-1)  return false;
   int bId = findClassNameInList(bstr,classesList);
-  if (bId==-1)
-  {
-    //cerr << "Error finding " << bstr << " class to check if " << astr << "class conforms to it." << endl;
-    return false;
-  }
+  if (bId==-1) return false;
   //Find aId starting from bId
   std::vector<int> stack;
   stack.push_back(bId);
@@ -511,6 +513,28 @@ ClassTable::ClassTable(Classes classes) : semant_errors(0) , error_stream(cerr) 
       }
     }
   }
+}
+
+Symbol ClassTable::getTypeFromHierarchy(Symbol currentClass, Symbol attrName)
+{
+   //Search for attribute object in the class hierarchy
+  std::string currentClassStr;
+  currentClassStr.assign((char*)currentClass->get_string(),currentClass->get_len());
+  std::vector<int> path = dfsPath(findClassNameInList(currentClassStr,classesList));
+  SymbolTable<Symbol,Entry>* attrTable = NULL;
+  Symbol type = NULL;
+  bool found=false;
+  for(int i=path.size()-1;i>=0;i--)
+  {
+    attrTable = attrEnv.lookup(idtable.add_string((char*)classesList[path[i]].c_str(),classesList[path[i]].size()));
+    type = attrTable->lookup(attrName);
+    if (type!=NULL)
+    {
+      found=true;
+      break;
+    }
+  }
+  return type;
 }
 
 Classes install_basic_classes() {
@@ -951,11 +975,21 @@ void branch_class::inferTypes(ClassTable* classtable)
 
 void assign_class::inferTypes(ClassTable* classtable)
 {
+  if (classtable->isSameSymbol(name,self))
+  {
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Cannot assign to self." << endl;
+    classtable->semant_error();
+  }
    expr->inferTypes(classtable);
    //OK now expr e1 should have a type t'
    Symbol tprimeType = expr->get_type();
    //Check if tprimeType is <= type of name
    Symbol t = classtable->objectEnv.lookup(name);
+   if (t==NULL)
+   {
+     Symbol currentClassSym = classtable->currentClass->getName();
+     t = classtable->getTypeFromHierarchy(currentClassSym,name);
+   }
    if (t==NULL)
    {
     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Type declaration for object not found anywhere." << endl;
@@ -1118,10 +1152,14 @@ void block_class::inferTypes(ClassTable* classtable)
 void let_class::inferTypes(ClassTable* classtable)
 {
   Symbol t0prime;
+  if (classtable->isSameSymbol(identifier,self))
+  {
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Self cannot be bound in a let expression!" << endl;
+      classtable->semant_error();
+  }
   if (init->isNULL())
   {
-    if (type_decl->equal_string("SELF_TYPE",9)==1) t0prime = classtable->classEnv.back();
-    else t0prime = type_decl;
+    t0prime = type_decl;
     classtable->objectEnv.enterscope();
     classtable->objectEnv.addid(identifier,t0prime);
     body->inferTypes(classtable);
@@ -1130,8 +1168,7 @@ void let_class::inferTypes(ClassTable* classtable)
   }
   else
   {
-    if (type_decl->equal_string("SELF_TYPE",9)==1) t0prime = classtable->classEnv.back();
-    else t0prime = type_decl;
+    t0prime = type_decl;
     init->inferTypes(classtable);
     Symbol t1 = init->get_type();
     if (!classtable->AconformsToB(t1,t0prime))
@@ -1327,7 +1364,7 @@ void new__class::inferTypes(ClassTable* classtable)
     if (classtable->findClassNameInList(typStr,classtable->classesList)==-1)
     {
       cerr << classtable->currentClass->get_filename();
-      cerr << ":" << /*get_line_number() <<*/ ": "  << "New used with undefined class " << type_name << " !" << endl;
+      cerr << ":" << get_line_number() << ": "  << "New used with undefined class " << type_name << " !" << endl;
       classtable->semant_error();
     }
     set_type(type_name);
@@ -1353,14 +1390,24 @@ void object_class::inferTypes(ClassTable* classtable)
     return;
   }
   Symbol nameType = classtable->objectEnv.lookup(name);
-  if (nameType==NULL)
+  if (nameType!=NULL)
   {
-    cerr << classtable->currentClass->get_filename() << ":" << get_line_number() << ": " << "Type declaration for object not found anywhere." << endl;
+    set_type(nameType); //default to object type
+    return;
+  }
+  //Search for attribute object in the class hierarchy
+  Symbol currentClassSym = classtable->currentClass->getName();
+  Symbol type = classtable->getTypeFromHierarchy(currentClassSym,name);
+  if (type==NULL)
+  {
+    cerr << classtable->currentClass->get_filename();
+    cerr << ":" << get_line_number() << ": ";
+    cerr << "Dispatch method not defined on expression type!" << endl;
     classtable->semant_error();
-    set_type(Object); //default to object type
-     return;
-   }
-   else set_type(nameType);
+    set_type(Object);
+    return;
+  }
+  else set_type(type);
 }
 //End of 2nd phase
 
