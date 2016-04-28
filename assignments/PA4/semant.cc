@@ -294,6 +294,7 @@ bool ClassTable::AconformsToB(Symbol a, Symbol b)
   return false;
 }
 
+//Outputs a vector that contains the class ids from the root of the inheritance graph down to x
 std::vector<int> ClassTable::dfsPath(int x)
 {
   std::vector<int> res;
@@ -906,11 +907,61 @@ void class__class::inferTypes(ClassTable* classtable)
 
 void method_class::inferTypes(ClassTable* classtable)
 {
+  //Check if the parameter list of the method contains variables names that assume multiple types
+  Symbol name1, name2;
+  for(int i = formals->first(); formals->more(i); i = formals->next(i))
+  {
+    name1 = formals->nth(i)->getName();
+    for(int j = formals->first(); formals->more(j); j = formals->next(j))
+    {
+      if (i==j) continue;
+      name2 = formals->nth(j)->getName();
+      if (classtable->isSameSymbol(name1,name2))
+      {
+	cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Formal parameter" << name1  << " multiply defined!" << endl;
+    classtable->semant_error();
+	break;
+      }
+    }
+  }
+  //End of multiply defined check
+  //Check if the method overrides a superclass method and if the signature matches
+  std::string currentClassName((char*)classtable->currentClass->getName()->get_string(),classtable->currentClass->getName()->get_len());
+  std::vector<int> path = classtable->dfsPath(classtable->findClassNameInList(currentClassName,classtable->classesList));
+  SymbolTable<Symbol,std::vector<Symbol> >* methodTable;
+  std::vector<Symbol>* argsVect;
+  for(int i=(int)path.size()-2;i>=0;i--)
+  {
+    methodTable = classtable->methodEnv.lookup(idtable.add_string((char*)classtable->classesList[path[i]].c_str(),classtable->classesList[path[i]].size()));
+    argsVect = methodTable->lookup(name);
+    //First check if the method arguments have the same length
+    if ((argsVect!=NULL) && (argsVect->size()-1!=formals->len()))
+    {
+      cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Incompatible number of formal parameters in redefined method " << name << "!" << endl;
+    classtable->semant_error();
+      break;
+    }
+    else if ((argsVect!=NULL) && (argsVect->size()-1==formals->len()))
+    {
+      //Check if the signature matches super class signature
+      for(int j=0;j<argsVect->size()-1;j++)
+      {
+	if (!classtable->isSameSymbol(argsVect->at(j),formals->nth(j)->getType()))
+	{
+	   cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Types do not match in redefined method " << name << "!" << endl;
+    classtable->semant_error();
+	  break;
+	}
+      }
+    }
+  }
+  //End of superclass signature match check
   classtable->objectEnv.enterscope();
   classtable->objectEnv.addid(self,classtable->classEnv.back());
   for(int i = formals->first(); formals->more(i); i = formals->next(i))
   {
     classtable->objectEnv.addid(formals->nth(i)->getName(),formals->nth(i)->getType());
+    formals->nth(i)->inferTypes(classtable);
   } 
   expr->inferTypes(classtable);
   Symbol cmp;
@@ -961,6 +1012,16 @@ void attr_class::inferTypes(ClassTable* classtable)
 
 void formal_class::inferTypes(ClassTable* classtable)
 {
+  if (classtable->isSameSymbol(type_decl,SELF_TYPE))
+  {
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Formal parameter " << name << " cannot have type SELF_TYPE." << endl;
+    classtable->semant_error();
+  }
+  else if (classtable->isSameSymbol(name,self))
+  {
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Formal parameters cannot be named 'self'." << endl;
+    classtable->semant_error();
+  }
   classtable->objectEnv.addid(name,type_decl);
 }
 
@@ -1129,6 +1190,23 @@ void loop_class::inferTypes(ClassTable* classtable)
 
 void typcase_class::inferTypes(ClassTable* classtable)
 {
+  //Check that no branch switch variable has the same type than another
+  Symbol type1, type2;
+  for(int i = cases->first(); cases->more(i); i = cases->next(i))
+  {
+    type1 = cases->nth(i)->getType();
+    for(int j = cases->first(); cases->more(j); j = cases->next(j))
+    {
+      if (i==j) continue;
+      type2 = cases->nth(j)->getType();
+      if (classtable->isSameSymbol(type1,type2))
+      {
+	cerr << classtable->currentClass->get_filename() << ":" << get_line_number() << ": " << "Case branches must all have unique types among the cases!" << endl;
+    classtable->semant_error();
+      }
+    }
+  }
+  //End of check
    expr->inferTypes(classtable);
    for(int i = cases->first(); cases->more(i); i = cases->next(i))
      cases->nth(i)->inferTypes(classtable);
