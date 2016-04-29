@@ -183,41 +183,9 @@ int ClassTable::hasSameAttr(int x, int y)
   return -1;
 }
 
-void ClassTable::printGraph()
-{
-  for(int i=0;i<classGraph.size();i++)
-  {
-    cout << i << ": ";
-    std::vector<int> v = classGraph[i];
-    for(int j=0;j<v.size();j++)
-    {
-      cout << " " << v[j];
-    }
-    cout << endl;
-  }
-  for(int i=0;i<classesList.size();i++) cout << classesList[i] << endl;
-  cout << "OK" << endl;
-}
-
-void ClassTable::printAttrs()
-{
-  for(int i=0;i<attrStruct.size();i++)
-  {
-    std::vector<Symbol> v = attrStruct[i];
-    cout << i << ":";
-    for(int j=0;j<v.size();j++)
-    {
-      cout << " " << v[j];
-    }
-    cout << endl;
-  }
-}
-
 //Check if attributes are redefined in a classe's subclasses
 bool ClassTable::redefinedAttributes(int &redefClassId, int &redefFeatureId)
 {
-  //printGraph();
-  //printAttrs();
   std::vector<int> stack,stack2;
   stack.push_back(rootId);
   int curId,curId2,attrId;
@@ -300,16 +268,43 @@ std::vector<int> ClassTable::dfsPath(int x)
   std::vector<int> res;
   std::vector<int> stack;
   stack.push_back(rootId);
-  int curNode;
+  int curNode,tNode;
+  bool found=false;
   while(stack.size()>0)
   {
     curNode = stack.back();
-    res.push_back(curNode);
-    if (curNode==x) break;
     stack.pop_back();
+    if (curNode==-1) //a parent's child nodes have been searched
+    {
+      tNode = stack.back(); //get the parent node Id
+      stack.pop_back();
+      if (found) res.push_back(tNode);
+      continue;
+    }
+    if (curNode==x) {found=true; res.push_back(x);continue;}
+    if (curNode==-2)
+    {
+      if (found)
+      {
+	res.push_back(rootId);
+	break;
+      }
+      continue;
+    }
+    if (found) continue;
     std::vector<int> v = classGraph[curNode];
-    for(unsigned int i=0;i<v.size();i++) stack.push_back(v[i]);
+    if (curNode!=rootId)
+    {
+      stack.push_back(curNode);
+      stack.push_back(-1);
+      for(unsigned int i=0;i<v.size();i++) stack.push_back(v[i]);
+    }
+    else
+    {
+      for(unsigned int i=0;i<v.size();i++) { stack.push_back(-2);stack.push_back(v[i]);}
+    }
   }
+  reverse(res.begin(),res.end());
   return res;
 }
 
@@ -325,21 +320,12 @@ Symbol ClassTable::leastCommonAncestor(Symbol a, Symbol b)
 {
   std::string astr(a->get_string(),a->get_len());
   int aId = findClassNameInList(astr,classesList);
-  std::string bstr(a->get_string(),b->get_len());
-  if (aId==-1)
-  {
-    cerr << "Error finding " << astr << " class to find least common ancestor." << endl;
-    return false;
-  }
+  std::string bstr(b->get_string(),b->get_len());
   int bId = findClassNameInList(bstr,classesList);
-  if (bId==-1)
-  {
-    cerr << "Error finding " << bstr << " class to find least common ancestor." << endl;
-    return false;
-  }
+  if ((aId==-1) || (bId==-1)) return NULL;
   std::vector<int> aPath = dfsPath(aId);
   std::vector<int> bPath = dfsPath(bId);
-  int ancestorId = lastCommonElement(aPath,bPath);
+  int ancestorId = aPath[lastCommonElement(aPath,bPath)];
   return idtable.add_string(const_cast<char*>(classesList[ancestorId].c_str()),classesList[ancestorId].size());
 }
 
@@ -889,14 +875,19 @@ void program_class::inferTypes(ClassTable* classtable)
       if (classtable->isSameSymbol(namesym,IO)) continue;
       if (classtable->isSameSymbol(namesym,Bool)) continue;
       classtable->currentClass = classes->nth(i);
-      fileN.assign(classes->nth(i)->get_filename()->get_string(),classes->nth(i)->get_filename()->get_len());
-      classtable->currentFileName = fileN;
       classes->nth(i)->inferTypes(classtable);
     }
 }
 
 void class__class::inferTypes(ClassTable* classtable)
 {
+  //Check if class inherit the basic classes string or bool
+  if ((classtable->isSameSymbol(parent,Bool)) || (classtable->isSameSymbol(parent,Str)))
+  {
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Cannot inherit basic classes!" << endl;
+    classtable->semant_error();
+  }
+  //End of check
   classtable->classEnv.push_back(name);
   classtable->objectEnv = *(classtable->attrEnv.lookup(name));
   for(int i = features->first(); features->more(i); i = features->next(i))
@@ -935,16 +926,16 @@ void method_class::inferTypes(ClassTable* classtable)
     methodTable = classtable->methodEnv.lookup(idtable.add_string((char*)classtable->classesList[path[i]].c_str(),classtable->classesList[path[i]].size()));
     argsVect = methodTable->lookup(name);
     //First check if the method arguments have the same length
-    if ((argsVect!=NULL) && (argsVect->size()-1!=formals->len()))
+    if ((argsVect!=NULL) && ((int)argsVect->size()-1!=formals->len()))
     {
       cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Incompatible number of formal parameters in redefined method " << name << "!" << endl;
     classtable->semant_error();
       break;
     }
-    else if ((argsVect!=NULL) && (argsVect->size()-1==formals->len()))
+    else if ((argsVect!=NULL) && ((int)argsVect->size()-1==formals->len()))
     {
       //Check if the signature matches super class signature
-      for(int j=0;j<argsVect->size()-1;j++)
+      for(unsigned int j=0;j<argsVect->size()-1;j++)
       {
 	if (!classtable->isSameSymbol(argsVect->at(j),formals->nth(j)->getType()))
 	{
@@ -964,11 +955,14 @@ void method_class::inferTypes(ClassTable* classtable)
     formals->nth(i)->inferTypes(classtable);
   } 
   expr->inferTypes(classtable);
-  Symbol cmp;
-  if (return_type->equal_string("SELF_TYPE",9)==1) cmp = classtable->classEnv.back();
-  else cmp = return_type;
+  Symbol cmp = return_type;
   Symbol t0prime = expr->get_type();
-  if (!classtable->AconformsToB(t0prime,cmp))
+  if ((classtable->isSameSymbol(cmp,SELF_TYPE)) && (!classtable->isSameSymbol(t0prime,SELF_TYPE)))
+  {
+    cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Method body type does not conform to method return type" << endl;
+    classtable->semant_error();
+  }
+  else if (!classtable->AconformsToB(t0prime,cmp))
   {
     cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Method body type does not conform to method return type" << endl;
     classtable->semant_error();
@@ -976,7 +970,7 @@ void method_class::inferTypes(ClassTable* classtable)
   set_type(return_type);
   std::string typStr;
   typStr.assign((char*)return_type->get_string(),return_type->get_len());
-  if (classtable->findClassNameInList(typStr,classtable->classesList)==-1)
+  if ((classtable->findClassNameInList(typStr,classtable->classesList)==-1) && (!classtable->isSameSymbol(return_type,SELF_TYPE)))
   {
     cerr << classtable->currentClass->get_filename();
     cerr << ":" << get_line_number() << ": "  << "Undefined return type " << type_name << " !" << endl;
@@ -1080,15 +1074,36 @@ void static_dispatch_class::inferTypes(ClassTable* classtable)
    {
      cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Static dispatch class does not conform to given class T" << endl;
      classtable->semant_error();
+     set_type(Object);
+     return;
    }
-   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = classtable->methodEnv.lookup(type_name);
-   if ((classtable->methodEnv.probe(type_name)==NULL) || (methodsList->lookup(name)==NULL))
+   std::string Tstr(type_name->get_string(),type_name->get_len());
+   int tId = classtable->findClassNameInList(Tstr,classtable->classesList);
+   std::vector<int> path = classtable->dfsPath(tId);
+   bool foundMethod=false;
+   SymbolTable<Symbol,std::vector<Symbol> >* methodsList = NULL;
+   std::vector<Symbol> methodArgs;
+   Symbol classType;
+   std::string typeStr;
+   for(int i=path.size()-1;i>=0;i--)
+   {
+     typeStr = classtable->classesList[path[i]];
+     classType = idtable.add_string((char*)typeStr.c_str(),typeStr.size());
+     methodsList = classtable->methodEnv.lookup(classType);
+     if (methodsList->lookup(name)!=NULL)
+     {
+       methodArgs = *(methodsList->lookup(name));
+       foundMethod = true;
+       break;
+     }
+   }
+   if (!foundMethod)
    {
       cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "Dispatch object or method not found!" << endl;
        classtable->semant_error();
+       set_type(Object);
        return;
    }
-   std::vector<Symbol> methodArgs = *(methodsList->lookup(name));
    //Check that all actual types conform to the types of methodArgs
    for(unsigned int i=0;i<methodArgs.size()-1;i++)
    {
@@ -1116,7 +1131,7 @@ void dispatch_class::inferTypes(ClassTable* classtable)
    else t0prime = className;
    if (classtable->methodEnv.lookup(t0prime)==NULL)
    {
-     cerr << classtable->currentFileName << ":";
+     cerr << classtable->currentClass->get_filename() << ":";
      cerr << get_line_number() << ": "  << "Dispatch object not found!" << endl;
      classtable->semant_error();
      return;
@@ -1145,8 +1160,9 @@ void dispatch_class::inferTypes(ClassTable* classtable)
    {
      cerr << classtable->currentClass->get_filename();
      cerr << ":" << get_line_number() << ": ";
-     cerr << "Dispatch method not defined on expression type!" << endl;
+     cerr << "Dispatch method " << name <<  " not defined on expression type " << t0prime << " !" << endl;
      classtable->semant_error();
+     set_type(Object);
      return;
    }
    //Check that all actual types conform to the types of methodArgs
@@ -1172,8 +1188,24 @@ void cond_class::inferTypes(ClassTable* classtable)
    pred->inferTypes(classtable);
    then_exp->inferTypes(classtable);
    else_exp->inferTypes(classtable);
-   if (pred->get_type()->equal_string("Bool",4)!=1) cerr << classtable->currentClass->get_filename() << ":" << get_line_number()<< ": "  << "If predicate does not have type Bool!" << endl;
-   set_type(classtable->leastCommonAncestor(then_exp->get_type(),else_exp->get_type()));
+   if (!classtable->isSameSymbol(pred->get_type(),Bool))
+   {
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number() << ": " << "If predicate must have type Bool!" << endl;
+    classtable->semant_error();
+   }
+   Symbol thenType = then_exp->get_type();
+   Symbol elseType = else_exp->get_type();
+   if (classtable->isSameSymbol(thenType,SELF_TYPE)) thenType = classtable->classEnv.back();
+   if (classtable->isSameSymbol(elseType,SELF_TYPE)) elseType = classtable->classEnv.back();
+   if (classtable->isSameSymbol(thenType,elseType)){set_type(thenType);return;}
+   Symbol ret = classtable->leastCommonAncestor(thenType,elseType);
+   if (ret==NULL)
+   {
+     cerr << classtable->currentClass->get_filename() << ":" << get_line_number() << ": " << "Could not determine if type!" << endl;
+    classtable->semant_error();
+     set_type(Object);
+   }
+   else set_type(ret);
 }
 
 void loop_class::inferTypes(ClassTable* classtable)
@@ -1210,11 +1242,13 @@ void typcase_class::inferTypes(ClassTable* classtable)
    expr->inferTypes(classtable);
    for(int i = cases->first(); cases->more(i); i = cases->next(i))
      cases->nth(i)->inferTypes(classtable);
-   Symbol temp;
+   Symbol temp,curtemp;
    for(int i = cases->first(); cases->more(i); i = cases->next(i))
    {
-     if (i==0) temp = cases->nth(i)->get_type();
-     else temp = classtable->leastCommonAncestor(temp,cases->nth(i)->get_type());
+     curtemp = cases->nth(i)->get_type();
+     if (classtable->isSameSymbol(curtemp,SELF_TYPE)) curtemp = classtable->classEnv.back();
+     if (i==0) temp = curtemp;
+     else temp = classtable->leastCommonAncestor(temp,curtemp);
    }
    set_type(temp);
 }
@@ -1444,6 +1478,7 @@ void new__class::inferTypes(ClassTable* classtable)
       cerr << classtable->currentClass->get_filename();
       cerr << ":" << get_line_number() << ": "  << "New used with undefined class " << type_name << " !" << endl;
       classtable->semant_error();
+       set_type(Object);
     }
     set_type(type_name);
   }
