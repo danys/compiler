@@ -9,6 +9,7 @@
 #include "list.h"
 #include <vector>
 #include <string>
+#include <algorithm>
 
 #define TRUE 1
 #define FALSE 0
@@ -44,7 +45,6 @@ public:
   SymbolTable<Symbol, SymbolTable<Symbol,std::vector<Symbol> > > methodEnv;
   std::vector<Symbol> classEnv;
   Class_ currentClass;
-  std::string currentFileName;
   SymbolTable<Symbol,SymbolTable<Symbol,Entry> > attrEnv;
   //Helper variable for setting up the method environment
   SymbolTable<Symbol,std::vector<Symbol> >* thisMethods;
@@ -58,8 +58,6 @@ public:
   bool isSameSymbol(Symbol a, Symbol b);
   int findClassNameInList(std::string className,std::vector<std::string> &list);
   Symbol getTypeFromHierarchy(Symbol currentClass, Symbol attrName);
-  void printGraph();
-  void printAttrs();
 };
 
 
