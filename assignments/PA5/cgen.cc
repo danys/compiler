@@ -131,6 +131,12 @@ BoolConst truebool(TRUE);
 
 void program_class::cgen(ostream &os) 
 {
+  //Generate code in two passes
+  //Pass 1 generates the object layout for each class
+  // TODO
+  //Pass 2 generates stack machine code for each expression
+  // TODO
+
   // spim wants comments to start with '#'
   os << "# start of generated code\n";
 
