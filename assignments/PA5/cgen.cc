@@ -142,6 +142,7 @@ void program_class::cgen(ostream &os)
 
   initialize_constants();
   CgenClassTable *codegen_classtable = new CgenClassTable(classes,os);
+  codegen_classtable->code(); //generate code
 
   os << "\n# end of generated code\n";
 }
