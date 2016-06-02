@@ -3,6 +3,8 @@
 #include "emit.h"
 #include "cool-tree.h"
 #include "symtab.h"
+#include <vector>
+#include <string>
 
 enum Basicness     {Basic, NotBasic};
 #define TRUE 1
@@ -21,7 +23,8 @@ private:
    int stringclasstag;
    int intclasstag;
    int boolclasstag;
-
+   int classtagindex; //current class tag index
+   std::vector<std::string> classNames;
 
 // The following methods emit code for
 // constants and global declarations.
