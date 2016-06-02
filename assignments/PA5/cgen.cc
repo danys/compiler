@@ -131,12 +131,6 @@ BoolConst truebool(TRUE);
 
 void program_class::cgen(ostream &os) 
 {
-  //Generate code in two passes
-  //Pass 1 generates the object layout for each class
-  // TODO
-  //Pass 2 generates stack machine code for each expression
-  // TODO
-
   // spim wants comments to start with '#'
   os << "# start of generated code\n";
 
@@ -616,7 +610,8 @@ void CgenClassTable::code_constants()
   //
   stringtable.add_string("");
   inttable.add_string("0");
-
+  
+  //Add stringtable entries, inttable entries and booleans
   stringtable.code_string_table(str,stringclasstag);
   inttable.code_string_table(str,intclasstag);
   code_bools(boolclasstag);
@@ -844,6 +839,7 @@ void CgenNode::set_parentnd(CgenNodeP p)
 
 void CgenClassTable::code()
 {
+  //Output of .data information
   if (cgen_debug) cout << "coding global data" << endl;
   code_global_data();
 
@@ -859,11 +855,28 @@ void CgenClassTable::code()
 //                   - dispatch tables
 //
 
-//Set up class_nameTab which maps from (class tag)*4
-//offset position to a string object refering to the name
-//of the class in question
+  //Set up class_nameTab which maps from (class tag)*4
+  /****************************************************/
+  //offset position to a string object refering to the name
+  //of the class in question
+  StringEntry* classSym;
+  //Put all class names as string objects in memory
+  for(unsigned int i=0;i<classNames.size();i++)
+  {
+    classSym = stringtable.add_string((char*)classNames[i].c_str(),classNames[i].size());
+    classSym->code_def(str,stringclasstag);
+  }
+  //Output pointers to the string objects
+  str << CLASSNAMETAB << LABEL;
+  for(unsigned int i=0;i<classNames.size();i++)
+  {
+    classSym = stringtable.add_string((char*)classNames[i].c_str(),classNames[i].size());
+    str << WORD;
+    classSym->code_ref(str);
+    str << endl;
+  }
 
-
+  //Output of text information
   if (cgen_debug) cout << "coding global text" << endl;
   code_global_text();
 
