@@ -142,7 +142,6 @@ void program_class::cgen(ostream &os)
 
   initialize_constants();
   CgenClassTable *codegen_classtable = new CgenClassTable(classes,os);
-  codegen_classtable->code(); //generate code
 
   os << "\n# end of generated code\n";
 }
@@ -626,9 +625,10 @@ void CgenClassTable::code_constants()
 
 CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
 {
-   stringclasstag = 0 /* Change to your String class tag here */;
-   intclasstag =    0 /* Change to your Int class tag here */;
-   boolclasstag =   0 /* Change to your Bool class tag here */;
+   classtagindex=0;
+   classNames.clear();
+   //Class tags for string, int and bool set in install_basic_classes()
+   //Variables: intclasstag, stringclasstag and boolclasstag
 
    enterscope();
    if (cgen_debug) cout << "Building CgenClassTable" << endl;
@@ -658,12 +658,23 @@ void CgenClassTable::install_basic_classes()
   addid(No_class,
 	new CgenNode(class_(No_class,No_class,nil_Features(),filename),
 			    Basic,this));
+  std::string NoClassName(No_class->get_string(),No_class->get_len());
+  classNames.push_back(NoClassName);
+  classtagindex++; //No_class
+
   addid(SELF_TYPE,
 	new CgenNode(class_(SELF_TYPE,No_class,nil_Features(),filename),
 			    Basic,this));
+  std::string SELFName(SELF_TYPE->get_string(),SELF_TYPE->get_len());
+  classNames.push_back(SELFName);
+  classtagindex++; //SELF_TYPE
+
   addid(prim_slot,
 	new CgenNode(class_(prim_slot,No_class,nil_Features(),filename),
 			    Basic,this));
+  std::string primName(prim_slot->get_string(),prim_slot->get_len());
+  classNames.push_back(primName);
+  classtagindex++; //prim_slot
 
 // 
 // The Object class has no parent class. Its methods are
@@ -685,7 +696,7 @@ void CgenClassTable::install_basic_classes()
            single_Features(method(copy, nil_Formals(), SELF_TYPE, no_expr()))),
 	   filename),
     Basic,this));
-
+ //Installed Object
 // 
 // The IO class inherits from Object. Its methods are
 //        out_string(Str) : SELF_TYPE          writes a string to the output
@@ -708,7 +719,7 @@ void CgenClassTable::install_basic_classes()
             single_Features(method(in_int, nil_Formals(), Int, no_expr()))),
 	   filename),	    
     Basic,this));
-
+ //Installed IO
 //
 // The Int class has no methods and only a single attribute, the
 // "val" for the integer. 
@@ -720,7 +731,7 @@ void CgenClassTable::install_basic_classes()
             single_Features(attr(val, prim_slot, no_expr())),
 	    filename),
      Basic,this));
-
+ //Installed Int
 //
 // Bool also has only the "val" slot.
 //
@@ -728,7 +739,7 @@ void CgenClassTable::install_basic_classes()
      new CgenNode(
       class_(Bool, Object, single_Features(attr(val, prim_slot, no_expr())),filename),
       Basic,this));
-
+ //Installed Bool
 //
 // The class Str has a number of slots and operations:
 //       val                                  ???
@@ -759,7 +770,7 @@ void CgenClassTable::install_basic_classes()
 				   no_expr()))),
 	     filename),
         Basic,this));
-
+ //Installed String
 }
 
 // CgenClassTable::install_class
@@ -770,7 +781,14 @@ void CgenClassTable::install_basic_classes()
 void CgenClassTable::install_class(CgenNodeP nd)
 {
   Symbol name = nd->get_name();
-
+  //Set the class tags of the string, int and bool base classes
+  if (name->equal_string("String",6)==1) stringclasstag = classtagindex;
+  else if (name->equal_string("Int",3)==1) intclasstag = classtagindex;
+  else if (name->equal_string("Bool",4)==1) boolclasstag = classtagindex;
+  //Add the class name to the list of class names
+  std::string className(name->get_string(),name->get_len());
+  classNames.push_back(className);
+  classtagindex++;
   if (probe(name))
     {
       return;
@@ -778,8 +796,8 @@ void CgenClassTable::install_class(CgenNodeP nd)
 
   // The class name is legal, so add it to the list of classes
   // and the symbol table.
-  nds = new List<CgenNode>(nd,nds);
-  addid(name,nd);
+  nds = new List<CgenNode>(nd,nds); //extend list of classes. Prepend current class
+  addid(name,nd); //add this class to the symbol table
 }
 
 void CgenClassTable::install_classes(Classes cs)
@@ -840,6 +858,11 @@ void CgenClassTable::code()
 //                   - class_nameTab
 //                   - dispatch tables
 //
+
+//Set up class_nameTab which maps from (class tag)*4
+//offset position to a string object refering to the name
+//of the class in question
+
 
   if (cgen_debug) cout << "coding global text" << endl;
   code_global_text();
