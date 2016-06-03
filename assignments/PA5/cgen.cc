@@ -399,12 +399,7 @@ void StringEntry::code_def(ostream& s, int stringclasstag)
   code_ref(s);  s  << LABEL                                             // label
       << WORD << stringclasstag << endl                                 // tag
       << WORD << (DEFAULT_OBJFIELDS + STRING_SLOTS + (len+4)/4) << endl // size
-      << WORD;
-
-
- /***** Add dispatch information for class String ******/
-
-      s << endl;                                              // dispatch table
+      << WORD <<  "String" << DISPTAB_SUFFIX << endl;                   // dispatch table
       s << WORD;  lensym->code_ref(s);  s << endl;            // string length
   emit_string_constant(s,str);                                // ascii string
   s << ALIGN;                                                 // align to word
@@ -442,11 +437,7 @@ void IntEntry::code_def(ostream &s, int intclasstag)
   code_ref(s);  s << LABEL                                // label
       << WORD << intclasstag << endl                      // class tag
       << WORD << (DEFAULT_OBJFIELDS + INT_SLOTS) << endl  // object size
-      << WORD; 
-
- /***** Add dispatch information for class Int ******/
-
-      s << endl;                                          // dispatch table
+      << WORD << "Int" << DISPTAB_SUFFIX << endl;         // dispatch table
       s << WORD << str << endl;                           // integer value
 }
 
@@ -610,7 +601,41 @@ void CgenClassTable::code_constants()
   //
   stringtable.add_string("");
   inttable.add_string("0");
-  
+
+  //Create dispatch tables for Object, IO, Int, String, Bool classes
+  //Object
+  str << "Object" << DISPTAB_SUFFIX << LABEL;
+  str << WORD << "Object.copy" << endl;
+  str << WORD << "Object.abort" << endl;
+  str << WORD << "Object.type_name" << endl;
+  //IO
+  str << "IO" << DISPTAB_SUFFIX << LABEL;
+  str << WORD << "Object.copy" << endl;
+  str << WORD << "Object.abort" << endl;
+  str << WORD << "Object.type_name" << endl;
+  str << WORD << "IO.out_string" << endl;
+  str << WORD << "IO.out_int" << endl;
+  str << WORD << "IO.in_string" << endl;
+  str << WORD << "IO.in_int" << endl;
+  //Int
+  str << "Int" << DISPTAB_SUFFIX << LABEL;
+  str << WORD << "Object.copy" << endl;
+  str << WORD << "Object.abort" << endl;
+  str << WORD << "Object.type_name" << endl;
+  //String
+  str << "String" << DISPTAB_SUFFIX << LABEL;
+  str << WORD << "Object.copy" << endl;
+  str << WORD << "Object.abort" << endl;
+  str << WORD << "Object.type_name" << endl;
+  str << WORD << "String.length" << endl;
+  str << WORD << "String.concat" << endl;
+  str << WORD << "String.substr" << endl;
+  //Bool
+  str << "Bool" << DISPTAB_SUFFIX << LABEL;
+  str << WORD << "Object.copy" << endl;
+  str << WORD << "Object.abort" << endl;
+  str << WORD << "Object.type_name" << endl;
+
   //Add stringtable entries, inttable entries and booleans
   stringtable.code_string_table(str,stringclasstag);
   inttable.code_string_table(str,intclasstag);
