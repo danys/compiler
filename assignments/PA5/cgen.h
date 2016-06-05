@@ -45,6 +45,7 @@ private:
    void install_classes(Classes cs);
    void build_inheritance_tree();
    void set_relations(CgenNodeP nd);
+   int findClassTag(Symbol sym);
 public:
    CgenClassTable(Classes, ostream& str);
    void code();
