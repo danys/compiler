@@ -477,11 +477,7 @@ void BoolConst::code_def(ostream& s, int boolclasstag)
   code_ref(s);  s << LABEL                                  // label
       << WORD << boolclasstag << endl                       // class tag
       << WORD << (DEFAULT_OBJFIELDS + BOOL_SLOTS) << endl   // object size
-      << WORD;
-
- /***** Add dispatch information for class Bool ******/
-
-      s << endl;                                            // dispatch table
+      << WORD << "Bool" << DISPTAB_SUFFIX << endl;          // dispatch table
       s << WORD << val << endl;                             // value (0 or 1)
 }
 
@@ -900,6 +896,25 @@ void CgenClassTable::code()
     classSym->code_ref(str);
     str << endl;
   }
+  CgenNode* node;
+  int currentClassTag;
+  //Generate code for the prototype objects
+  /*****************************************/
+  for(List<CgenNode> *l = nds; l != NULL; l=l->tl())
+  {
+    node = l->hd();
+    currentClassTag = findClassTag(node->name);
+    str << WORD << "-1" << endl;
+    str << WORD << currentClassTag << PROTOBJ_SUFFIX << LABEL     // label
+      << WORD << currentClasstag << endl                       // class tag
+      << WORD << ... << endl   // object size
+      << WORD << currentClassTag << DISPTAB_SUFFIX << endl;          // dispatch table
+    for(int i=features->first();features->more(i);i=features->next(i))
+    {
+      //Filter out methods, process attributes only, output code
+      //TODO
+    }
+  }
 
   //Output of text information
   if (cgen_debug) cout << "coding global text" << endl;
@@ -912,6 +927,12 @@ void CgenClassTable::code()
 
 }
 
+int CgenClassTable::findClassTag(Symbol sym)
+{
+  std::string strsym(sym->get_string(),sym->get_len());
+  for(int i=0;i<classNames.size();i++) if (classNames[i].compare(strsym)==0) return i;
+  return -1;
+}
 
 CgenNodeP CgenClassTable::root()
 {
