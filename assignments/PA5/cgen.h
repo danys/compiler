@@ -34,6 +34,12 @@ private:
    void code_bools(int);
    void code_select_gc();
    void code_constants();
+   void code_class_name_tab();
+   void code_prototype_objects();
+   void code_class_obj_table();
+   void code_class_init_methods();
+   void code_class_method_defs();
+   void code_dispatch_tables();
 
 // The following creates an inheritance graph from
 // a list of classes.  The graph is implemented as
