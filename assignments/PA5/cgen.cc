@@ -576,6 +576,74 @@ void CgenClassTable::code_select_gc()
   str << WORD << (cgen_Memmgr_Test == GC_TEST) << endl;
 }
 
+//Set up class_nameTab which maps from (class tag)*4
+void CgenClassTable::code_class_name_tab()
+{
+  //offset position to a string object refering to the name
+  //of the class in question
+  StringEntry* classSym;
+  //Put all class names as string objects in memory
+  for(unsigned int i=0;i<classNames.size();i++)
+  {
+    classSym = stringtable.add_string((char*)classNames[i].c_str(),classNames[i].size());
+    classSym->code_def(str,stringclasstag);
+  }
+  //Output pointers to the string objects
+  str << CLASSNAMETAB << LABEL;
+  for(unsigned int i=0;i<classNames.size();i++)
+  {
+    classSym = stringtable.add_string((char*)classNames[i].c_str(),classNames[i].size());
+    str << WORD;
+    classSym->code_ref(str);
+    str << endl;
+  }
+}
+
+//Generate code for the prototype objects
+void CgenClassTable::code_prototype_objects()
+{
+  CgenNode* node;
+  int currentClassTag;
+  for(List<CgenNode> *l = nds; l != NULL; l=l->tl())
+  {
+    node = l->hd();
+    currentClassTag = findClassTag(node->name);
+    str << WORD << "-1" << endl;
+    str << WORD << currentClassTag << PROTOBJ_SUFFIX << LABEL     // label
+      << WORD << currentClasstag << endl                       // class tag
+      << WORD << ... << endl   // object size
+      << WORD << currentClassTag << DISPTAB_SUFFIX << endl;          // dispatch table
+    for(int i=features->first();features->more(i);i=features->next(i))
+    {
+      //Only process attributes
+      if (!features->nth(i)->isMethod())
+      {
+	Feature feature = features->nth(i);
+	
+      }
+    }
+  }
+}
+
+void CgenClassTable::code_class_obj_table()
+{
+  //
+}
+
+void CgenClassTable::code_class_init_methods()
+{
+  //
+}
+
+void CgenClassTable::code_class_method_defs()
+{
+  //
+}
+
+void CgenClassTable::code_dispatch_tables()
+{
+  //
+}
 
 //********************************************************
 //
@@ -870,61 +938,27 @@ void CgenClassTable::code()
   if (cgen_debug) cout << "coding constants" << endl;
   code_constants();
 
-//                 Add your code to emit
-//                   - prototype objects
-//                   - class_nameTab
-//                   - dispatch tables
-//
+  if (cgen_debug) cout << "coding class name table" << endl;
+  code_class_name_tab();
 
-  //Set up class_nameTab which maps from (class tag)*4
-  /****************************************************/
-  //offset position to a string object refering to the name
-  //of the class in question
-  StringEntry* classSym;
-  //Put all class names as string objects in memory
-  for(unsigned int i=0;i<classNames.size();i++)
-  {
-    classSym = stringtable.add_string((char*)classNames[i].c_str(),classNames[i].size());
-    classSym->code_def(str,stringclasstag);
-  }
-  //Output pointers to the string objects
-  str << CLASSNAMETAB << LABEL;
-  for(unsigned int i=0;i<classNames.size();i++)
-  {
-    classSym = stringtable.add_string((char*)classNames[i].c_str(),classNames[i].size());
-    str << WORD;
-    classSym->code_ref(str);
-    str << endl;
-  }
-  CgenNode* node;
-  int currentClassTag;
-  //Generate code for the prototype objects
-  /*****************************************/
-  for(List<CgenNode> *l = nds; l != NULL; l=l->tl())
-  {
-    node = l->hd();
-    currentClassTag = findClassTag(node->name);
-    str << WORD << "-1" << endl;
-    str << WORD << currentClassTag << PROTOBJ_SUFFIX << LABEL     // label
-      << WORD << currentClasstag << endl                       // class tag
-      << WORD << ... << endl   // object size
-      << WORD << currentClassTag << DISPTAB_SUFFIX << endl;          // dispatch table
-    for(int i=features->first();features->more(i);i=features->next(i))
-    {
-      //Filter out methods, process attributes only, output code
-      //TODO
-    }
-  }
+  if (cgen_debug) cout << "coding prototype objects" << endl;
+  code_prototype_objects();
+
+  if (cgen_debug) cout << "coding class object table" << endl;
+  code_class_obj_table();
+
+  if (cgen_debug) cout << "coding dispatch tables" << endl;
+  code_dispatch_tables();
 
   //Output of text information
   if (cgen_debug) cout << "coding global text" << endl;
   code_global_text();
 
-//                 Add your code to emit
-//                   - object initializer
-//                   - the class methods
-//                   - etc...
+  if (cgen_debug) cout << "coding class initialization methods" << endl;
+  code_class_init_methods();
 
+   if (cgen_debug) cout << "coding class method definitions" << endl;
+  code_class_method_defs();
 }
 
 int CgenClassTable::findClassTag(Symbol sym)
