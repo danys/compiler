@@ -608,17 +608,21 @@ void CgenClassTable::code_prototype_objects()
   {
     node = l->hd();
     currentClassTag = findClassTag(node->name);
+    
+    //Compute the object size
+    //Size = DEFAULT_OBJFIELDS+NUMBER_OF_ATTR+NUMBER_OF_INHER_ATTR
+
     str << WORD << "-1" << endl;
     str << WORD << currentClassTag << PROTOBJ_SUFFIX << LABEL     // label
-      << WORD << currentClasstag << endl                       // class tag
-      << WORD << ... << endl   // object size
+      << WORD << currentClassTag << endl                       // class tag
+      << WORD << node->features->length... << endl   // object size
       << WORD << currentClassTag << DISPTAB_SUFFIX << endl;          // dispatch table
-    for(int i=features->first();features->more(i);i=features->next(i))
+    for(int i=node->features->first();node->features->more(i);i=node->features->next(i))
     {
       //Only process attributes
-      if (!features->nth(i)->isMethod())
+      if (!node->features->nth(i)->isMethod())
       {
-	Feature feature = features->nth(i);
+	Feature feature = node->features->nth(i);
 	
       }
     }
@@ -642,30 +646,6 @@ void CgenClassTable::code_class_method_defs()
 
 void CgenClassTable::code_dispatch_tables()
 {
-  //
-}
-
-//********************************************************
-//
-// Emit code to reserve space for and initialize all of
-// the constants.  Class names should have been added to
-// the string table (in the supplied code, is is done
-// during the construction of the inheritance graph), and
-// code for emitting string constants as a side effect adds
-// the string's length to the integer table.  The constants
-// are emmitted by running through the stringtable and inttable
-// and producing code for each entry.
-//
-//********************************************************
-
-void CgenClassTable::code_constants()
-{
-  //
-  // Add constants that are required by the code generator.
-  //
-  stringtable.add_string("");
-  inttable.add_string("0");
-
   //Create dispatch tables for Object, IO, Int, String, Bool classes
   //Object
   str << "Object" << DISPTAB_SUFFIX << LABEL;
@@ -699,6 +679,28 @@ void CgenClassTable::code_constants()
   str << WORD << "Object.copy" << endl;
   str << WORD << "Object.abort" << endl;
   str << WORD << "Object.type_name" << endl;
+}
+
+//********************************************************
+//
+// Emit code to reserve space for and initialize all of
+// the constants.  Class names should have been added to
+// the string table (in the supplied code, is is done
+// during the construction of the inheritance graph), and
+// code for emitting string constants as a side effect adds
+// the string's length to the integer table.  The constants
+// are emmitted by running through the stringtable and inttable
+// and producing code for each entry.
+//
+//********************************************************
+
+void CgenClassTable::code_constants()
+{
+  //
+  // Add constants that are required by the code generator.
+  //
+  stringtable.add_string("");
+  inttable.add_string("0");
 
   //Add stringtable entries, inttable entries and booleans
   stringtable.code_string_table(str,stringclasstag);
@@ -964,7 +966,7 @@ void CgenClassTable::code()
 int CgenClassTable::findClassTag(Symbol sym)
 {
   std::string strsym(sym->get_string(),sym->get_len());
-  for(int i=0;i<classNames.size();i++) if (classNames[i].compare(strsym)==0) return i;
+  for(unsigned int i=0;i<classNames.size();i++) if (classNames[i].compare(strsym)==0) return i;
   return -1;
 }
 
