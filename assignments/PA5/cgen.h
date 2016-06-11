@@ -52,6 +52,7 @@ private:
    void build_inheritance_tree();
    void set_relations(CgenNodeP nd);
    int findClassTag(Symbol sym);
+   void setClassTags();
 public:
    CgenClassTable(Classes, ostream& str);
    void code();
@@ -65,6 +66,7 @@ private:
    List<CgenNode> *children;                  // Children of class
    Basicness basic_status;                    // `Basic' if class is basic
                                               // `NotBasic' otherwise
+   int classTag;
 
 public:
    CgenNode(Class_ c,
@@ -76,6 +78,8 @@ public:
    void set_parentnd(CgenNodeP p);
    CgenNodeP get_parentnd() { return parentnd; }
    int basic() { return (basic_status == Basic); }
+   void setClassTag(int tag){classTag=tag;}
+   int getClassTag(){return classTag;}
 };
 
 class BoolConst 
