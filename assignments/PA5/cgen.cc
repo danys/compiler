@@ -631,7 +631,13 @@ void CgenClassTable::code_prototype_objects()
 
 void CgenClassTable::code_class_obj_table()
 {
-  //
+  str << WORD << CLASSOBJTAB << LABEL;
+  List<CgenNode>* nodes = nds;
+  for(CgenNode* node=nodes->hd(); node!=NULL; nodes=nodes->tl())
+  {
+    str << WORD << node->get_name() << PROTOBJ_SUFFIX << endl;
+    str << WORD << node->get_name() << CLASSINIT_SUFFIX << endl;
+  }
 }
 
 void CgenClassTable::code_class_init_methods()
@@ -708,11 +714,28 @@ void CgenClassTable::code_constants()
   code_bools(boolclasstag);
 }
 
+//Assign class tags and build a list of class names ordered by class tags
+void CgenClassTable::setClassTags()
+{
+  classtagindex=0;
+  classNames.clear();
+  List<CgenNode>* nodes = nds;
+  //Loop over the list of all classes (except for No_class, SELF_TYPE and prim_slot)
+  for(CgenNode* node=nodes->hd(); node!=NULL; nodes=nodes->tl())
+  {
+    node->setClassTag(classtagindex);
+    if (node->name->equal_string("String",6)==1) stringclasstag = classtagindex;
+    else if (node->name->equal_string("Int",3)==1) intclasstag = classtagindex;
+    else if (node->name->equal_string("Bool",4)==1) boolclasstag = classtagindex;
+    //add the current class name to the list of class names
+    std::string className(node->name->get_string(),node->name->get_len());
+    classNames.push_back(className);
+    classtagindex++;
+  }
+}
 
 CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
 {
-   classtagindex=0;
-   classNames.clear();
    //Class tags for string, int and bool set in install_basic_classes()
    //Variables: intclasstag, stringclasstag and boolclasstag
 
@@ -721,7 +744,7 @@ CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
    install_basic_classes();
    install_classes(classes);
    build_inheritance_tree();
-
+   setClassTags(); //assigns a unique class tag to every class
    code();
    exitscope();
 }
@@ -744,23 +767,14 @@ void CgenClassTable::install_basic_classes()
   addid(No_class,
 	new CgenNode(class_(No_class,No_class,nil_Features(),filename),
 			    Basic,this));
-  std::string NoClassName(No_class->get_string(),No_class->get_len());
-  classNames.push_back(NoClassName);
-  classtagindex++; //No_class
 
   addid(SELF_TYPE,
 	new CgenNode(class_(SELF_TYPE,No_class,nil_Features(),filename),
 			    Basic,this));
-  std::string SELFName(SELF_TYPE->get_string(),SELF_TYPE->get_len());
-  classNames.push_back(SELFName);
-  classtagindex++; //SELF_TYPE
 
   addid(prim_slot,
 	new CgenNode(class_(prim_slot,No_class,nil_Features(),filename),
 			    Basic,this));
-  std::string primName(prim_slot->get_string(),prim_slot->get_len());
-  classNames.push_back(primName);
-  classtagindex++; //prim_slot
 
 // 
 // The Object class has no parent class. Its methods are
@@ -867,14 +881,6 @@ void CgenClassTable::install_basic_classes()
 void CgenClassTable::install_class(CgenNodeP nd)
 {
   Symbol name = nd->get_name();
-  //Set the class tags of the string, int and bool base classes
-  if (name->equal_string("String",6)==1) stringclasstag = classtagindex;
-  else if (name->equal_string("Int",3)==1) intclasstag = classtagindex;
-  else if (name->equal_string("Bool",4)==1) boolclasstag = classtagindex;
-  //Add the class name to the list of class names
-  std::string className(name->get_string(),name->get_len());
-  classNames.push_back(className);
-  classtagindex++;
   if (probe(name))
     {
       return;
@@ -943,11 +949,11 @@ void CgenClassTable::code()
   if (cgen_debug) cout << "coding class name table" << endl;
   code_class_name_tab();
 
-  if (cgen_debug) cout << "coding prototype objects" << endl;
-  code_prototype_objects();
-
   if (cgen_debug) cout << "coding class object table" << endl;
   code_class_obj_table();
+  
+  if (cgen_debug) cout << "coding prototype objects" << endl;
+  code_prototype_objects();
 
   if (cgen_debug) cout << "coding dispatch tables" << endl;
   code_dispatch_tables();
