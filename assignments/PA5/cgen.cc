@@ -635,8 +635,8 @@ void CgenClassTable::code_class_obj_table()
   List<CgenNode>* nodes = nds;
   for(CgenNode* node=nodes->hd(); node!=NULL; nodes=nodes->tl())
   {
-    str << WORD << node->get_name() << PROTOBJ_SUFFIX << endl;
-    str << WORD << node->get_name() << CLASSINIT_SUFFIX << endl;
+    str << WORD << node->name << PROTOBJ_SUFFIX << endl;
+    str << WORD << node->name << CLASSINIT_SUFFIX << endl;
   }
 }
 
@@ -734,6 +734,59 @@ void CgenClassTable::setClassTags()
   }
 }
 
+void CgenNode::setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride)
+{
+  //Loop over features
+  Feature feature;
+  for(int i=fromObj->features->first();fromObj->features->more(i);i=fromObj->features->next(i))
+  {
+    feature = fromObj->features->nth(i);
+    if (feature->isMethod())
+    {
+      //OK feature is a method
+      if (checkOverride)
+      {
+	//Check if this method has already been inherited
+	//A method with the same name overrides a method inherited by an ancestor (types do not need to be the same)
+	//Symbol methodName = feature->name;
+	int methodIndex=-1;
+	for(int j=0;j<methods.size();j++)
+	{
+	  if (methods[j].name->equal_string(feature->name->get_string(),feature->name->get_len())==1) methodIndex=j;
+	}
+	if (j==-1) methods.push_back(feature);
+	else methods[j]=feature;
+      }
+      else methods[j]=feature;
+    }
+    else
+    {
+      //OK feature is an attribute
+      //Attributes cannot be inherited, checked already by the semantic analyzer
+      attributes.push_back(feature);
+    }
+  }
+}
+
+//Set the all the attributes and methods of every class in the inheritance tree
+void CgenClassTable::setClassAttributesAndMethods()
+{
+  CgenNode* rootNode = root();
+  CgenNode* curNode = NULL;
+  rootNode->setMethodsAndAttributes(rootNode,false);
+  stack<CgenNode*> nodeStack;
+  nodeStack.push(rootNode);
+  while(!nodeStack.empty())
+  {
+    curNode = nodeStack.top();
+    nodeStack.pop();
+    curNode->setMethodsAndAttributes(curNode->get_parentnd(),false); //add parent class methods and attributes
+    curNode->setMethodsAndAttributes(curNode,true); //add this object's class methods and attributes
+    List<CgenNode>* list = curNode->get_children();
+    for(;list!=NULL;list=list->tl()) nodeStack.push(list->hd());
+  }
+}
+
 CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
 {
    //Class tags for string, int and bool set in install_basic_classes()
@@ -745,6 +798,7 @@ CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
    install_classes(classes);
    build_inheritance_tree();
    setClassTags(); //assigns a unique class tag to every class
+   setClassAttributesAndMethods(); //find every class's list of attributes and methods
    code();
    exitscope();
 }
