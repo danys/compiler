@@ -5,6 +5,7 @@
 #include "symtab.h"
 #include <vector>
 #include <string>
+#include <stack>
 
 enum Basicness     {Basic, NotBasic};
 #define TRUE 1
@@ -53,6 +54,8 @@ private:
    void set_relations(CgenNodeP nd);
    int findClassTag(Symbol sym);
    void setClassTags();
+   void setClassAttributesAndMethods();
+
 public:
    CgenClassTable(Classes, ostream& str);
    void code();
@@ -67,6 +70,8 @@ private:
    Basicness basic_status;                    // `Basic' if class is basic
                                               // `NotBasic' otherwise
    int classTag;
+   std::vector<Feature> attributes;
+   std::vector<Feature> methods;
 
 public:
    CgenNode(Class_ c,
@@ -80,6 +85,7 @@ public:
    int basic() { return (basic_status == Basic); }
    void setClassTag(int tag){classTag=tag;}
    int getClassTag(){return classTag;}
+   void setMethodsAndAttributes(CgenNode* toObj, CgenNode* fromObj, bool checkOverride);
 };
 
 class BoolConst 
