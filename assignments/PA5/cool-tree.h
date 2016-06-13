@@ -50,6 +50,7 @@ public:
    tree_node *copy()		 { return copy_Feature(); }
    virtual Feature copy_Feature() = 0;
    virtual bool isMethod() = 0;
+   virtual Symbol getName() = 0;
 
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
@@ -189,6 +190,7 @@ public:
    Feature copy_Feature();
    void dump(ostream& stream, int n);
    virtual bool isMethod(){return true;}
+   virtual Symbol getName(){return name;}
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -214,6 +216,7 @@ public:
    Feature copy_Feature();
    void dump(ostream& stream, int n);
    virtual bool isMethod(){return false;}
+   virtual Symbol getName(){return name;}
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
