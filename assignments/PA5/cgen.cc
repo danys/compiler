@@ -603,28 +603,40 @@ void CgenClassTable::code_class_name_tab()
 void CgenClassTable::code_prototype_objects()
 {
   CgenNode* node;
-  int currentClassTag;
+  int currentClassTag,objSize;
   for(List<CgenNode> *l = nds; l != NULL; l=l->tl())
   {
     node = l->hd();
-    currentClassTag = findClassTag(node->name);
+    currentClassTag = findClassTag(node->get_name());
     
     //Compute the object size
     //Size = DEFAULT_OBJFIELDS+NUMBER_OF_ATTR+NUMBER_OF_INHER_ATTR
-
+    objSize = DEFAULT_OBJFIELDS + node->attributes.size();
     str << WORD << "-1" << endl;
     str << WORD << currentClassTag << PROTOBJ_SUFFIX << LABEL     // label
       << WORD << currentClassTag << endl                       // class tag
-      << WORD << node->features->length... << endl   // object size
-      << WORD << currentClassTag << DISPTAB_SUFFIX << endl;          // dispatch table
-    for(int i=node->features->first();node->features->more(i);i=node->features->next(i))
+      << WORD << objSize << endl   // object size
+      << WORD << node->get_name() << DISPTAB_SUFFIX << endl;          // dispatch table
+    attr_class* attribute;
+    for(int i=0;i<node->attributes.size();i++)
     {
-      //Only process attributes
-      if (!node->features->nth(i)->isMethod())
+      attribute = dynamic_cast<attr_class*>(node->attributes[i]);
+      if (attribute->type_decl==Int)
       {
-	Feature feature = node->features->nth(i);
-	
+	IntEntry* intentry = (IntEntry*)inttable.add_int(0);
+	intentry->code_ref(str);
       }
+      else if (attribute->type_decl==Str)
+      {
+	StringEntry* strentry = (StringEntry*)stringtable.add_string("");
+	strentry->code_ref(str);
+      }
+      else if (attribute->type_decl==Bool)
+      {
+	BoolConst falseb(false);
+	falseb.code_ref(str);
+      }
+      else str << "" << endl;
     }
   }
 }
@@ -635,8 +647,8 @@ void CgenClassTable::code_class_obj_table()
   List<CgenNode>* nodes = nds;
   for(CgenNode* node=nodes->hd(); node!=NULL; nodes=nodes->tl())
   {
-    str << WORD << node->name << PROTOBJ_SUFFIX << endl;
-    str << WORD << node->name << CLASSINIT_SUFFIX << endl;
+    str << WORD << node->get_name() << PROTOBJ_SUFFIX << endl;
+    str << WORD << node->get_name() << CLASSINIT_SUFFIX << endl;
   }
 }
 
@@ -752,7 +764,7 @@ void CgenNode::setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride)
 	int methodIndex=-1;
 	for(int j=0;j<methods.size();j++)
 	{
-	  if (methods[j].name->equal_string(feature->name->get_string(),feature->name->get_len())==1) methodIndex=j;
+	  if (methods[j]->name->equal_string(feature->name->get_string(),feature->name->get_len())==1) methodIndex=j;
 	}
 	if (j==-1) methods.push_back(feature);
 	else methods[j]=feature;
