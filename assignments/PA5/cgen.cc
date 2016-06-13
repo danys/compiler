@@ -618,9 +618,10 @@ void CgenClassTable::code_prototype_objects()
       << WORD << objSize << endl   // object size
       << WORD << node->get_name() << DISPTAB_SUFFIX << endl;          // dispatch table
     attr_class* attribute;
-    for(int i=0;i<node->attributes.size();i++)
+    for(unsigned int i=0;i<node->attributes.size();i++)
     {
       attribute = dynamic_cast<attr_class*>(node->attributes[i]);
+      str << WORD;
       if (attribute->type_decl==Int)
       {
 	IntEntry* intentry = (IntEntry*)inttable.add_int(0);
@@ -636,7 +637,8 @@ void CgenClassTable::code_prototype_objects()
 	BoolConst falseb(false);
 	falseb.code_ref(str);
       }
-      else str << "" << endl;
+      else str << "0";
+      str << endl;
     }
   }
 }
@@ -664,39 +666,15 @@ void CgenClassTable::code_class_method_defs()
 
 void CgenClassTable::code_dispatch_tables()
 {
-  //Create dispatch tables for Object, IO, Int, String, Bool classes
-  //Object
-  str << "Object" << DISPTAB_SUFFIX << LABEL;
-  str << WORD << "Object.copy" << endl;
-  str << WORD << "Object.abort" << endl;
-  str << WORD << "Object.type_name" << endl;
-  //IO
-  str << "IO" << DISPTAB_SUFFIX << LABEL;
-  str << WORD << "Object.copy" << endl;
-  str << WORD << "Object.abort" << endl;
-  str << WORD << "Object.type_name" << endl;
-  str << WORD << "IO.out_string" << endl;
-  str << WORD << "IO.out_int" << endl;
-  str << WORD << "IO.in_string" << endl;
-  str << WORD << "IO.in_int" << endl;
-  //Int
-  str << "Int" << DISPTAB_SUFFIX << LABEL;
-  str << WORD << "Object.copy" << endl;
-  str << WORD << "Object.abort" << endl;
-  str << WORD << "Object.type_name" << endl;
-  //String
-  str << "String" << DISPTAB_SUFFIX << LABEL;
-  str << WORD << "Object.copy" << endl;
-  str << WORD << "Object.abort" << endl;
-  str << WORD << "Object.type_name" << endl;
-  str << WORD << "String.length" << endl;
-  str << WORD << "String.concat" << endl;
-  str << WORD << "String.substr" << endl;
-  //Bool
-  str << "Bool" << DISPTAB_SUFFIX << LABEL;
-  str << WORD << "Object.copy" << endl;
-  str << WORD << "Object.abort" << endl;
-  str << WORD << "Object.type_name" << endl;
+  List<CgenNode> * nodes = nds;
+  CgenNode* node = NULL;
+  for(;nodes->hd()!=NULL;nodes=nodes->tl())
+  {
+    node=nodes->hd();
+    str << node->name << DISPTAB_SUFFIX << LABEL;
+    for(unsigned int i=0;i<node->methods.size();i++)
+      str << WORD << node->name << "." << node->methods[i]->getName() << endl;
+  }
 }
 
 //********************************************************
@@ -762,14 +740,14 @@ void CgenNode::setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride)
 	//A method with the same name overrides a method inherited by an ancestor (types do not need to be the same)
 	//Symbol methodName = feature->name;
 	int methodIndex=-1;
-	for(int j=0;j<methods.size();j++)
+	for(unsigned int j=0;j<methods.size();j++)
 	{
-	  if (methods[j]->name->equal_string(feature->name->get_string(),feature->name->get_len())==1) methodIndex=j;
+	  if (methods[j]->getName()->equal_string(feature->getName()->get_string(),feature->getName()->get_len())==1) methodIndex=j;
 	}
-	if (j==-1) methods.push_back(feature);
-	else methods[j]=feature;
+	if (methodIndex==-1) methods.push_back(feature);
+	else methods[methodIndex]=feature; //override method
       }
-      else methods[j]=feature;
+      else methods.push_back(feature);
     }
     else
     {
@@ -786,7 +764,7 @@ void CgenClassTable::setClassAttributesAndMethods()
   CgenNode* rootNode = root();
   CgenNode* curNode = NULL;
   rootNode->setMethodsAndAttributes(rootNode,false);
-  stack<CgenNode*> nodeStack;
+  std::stack<CgenNode*> nodeStack;
   nodeStack.push(rootNode);
   while(!nodeStack.empty())
   {
