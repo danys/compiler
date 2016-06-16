@@ -136,10 +136,13 @@ void program_class::cgen(ostream &os)
 
   initialize_constants();
   CgenClassTable *codegen_classtable = new CgenClassTable(classes,os);
-
+  cout << "Walking AST and generating stack machine code" << endl;
+  for(int i=classes->first();classes->more(i);i=classes->next(i))
+  {
+    classes->nth(i)->code(os,codegen_classtable);
+  }
   os << "\n# end of generated code\n";
 }
-
 
 //////////////////////////////////////////////////////////////////////////////
 //
@@ -659,11 +662,6 @@ void CgenClassTable::code_class_init_methods()
   //
 }
 
-void CgenClassTable::code_class_method_defs()
-{
-  //
-}
-
 void CgenClassTable::code_dispatch_tables()
 {
   List<CgenNode> * nodes = nds;
@@ -1008,9 +1006,6 @@ void CgenClassTable::code()
 
   if (cgen_debug) cout << "coding class initialization methods" << endl;
   code_class_init_methods();
-
-   if (cgen_debug) cout << "coding class method definitions" << endl;
-  code_class_method_defs();
 }
 
 int CgenClassTable::findClassTag(Symbol sym)
@@ -1051,6 +1046,9 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 //   constant integers, strings, and booleans are provided.
 //
 //*****************************************************************
+
+void class__class::code(ostream &s, CgenClassTable* table) {
+}
 
 void assign_class::code(ostream &s) {
 }
