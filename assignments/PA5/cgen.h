@@ -53,13 +53,14 @@ private:
    void build_inheritance_tree();
    void set_relations(CgenNodeP nd);
    int findClassTag(Symbol sym);
-   void setClassTags();
+   void setClassTag(CgenNode* node);
    void setClassAttributesAndMethods();
 
 public:
    CgenClassTable(Classes, ostream& str);
    void code();
    CgenNodeP root();
+   CgenNode* getClassByName(Symbol className);
 };
 
 
@@ -86,6 +87,9 @@ public:
    void setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride);
    std::vector<Feature> attributes;
    std::vector<Feature> methods;
+   CgenClassTable* classTable;
+   int getFeatureOffsetByName(Symbol featureName, bool isAttribute);
+   void code_init_method(ostream &s);
 };
 
 class BoolConst 

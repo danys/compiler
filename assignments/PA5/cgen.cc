@@ -657,9 +657,42 @@ void CgenClassTable::code_class_obj_table()
   }
 }
 
+void attr_class::code_init_attr(ostream &s,CgenNode* node)
+{
+  if (init!=NULL)
+  {
+    int offset = node->getFeatureOffsetByName(name,true);
+    init->code(s,node->classTable); //Leaves init result in $a0
+    emit_store(ACC,offset,SELF,s);
+  }
+}
+
+void CgenNode::code_init_method(ostream &s)
+{
+  emit_init_ref(name,s);
+  s << LABEL;
+  //First call the parent class's initialization method
+  if ((get_parentnd()!=NULL) && (get_parentnd()->name!=No_class))
+  {
+    //
+  }
+  //Loop over all the features and init attributes
+  Feature feature;
+  for(int i=features->first();features->more(i);i=features->next(i))
+  {
+    feature = features->nth(i);
+    if (!feature->isMethod()) feature->code_init_attr(s,this);
+  }
+}
+
+//Emit code for each init method of every class
 void CgenClassTable::code_class_init_methods()
 {
-  //
+  List<CgenNode>* nodes = nds;
+  for(;nodes;nodes=nodes->tl())
+  {
+    nodes->hd()->code_init_method(str);
+  }
 }
 
 void CgenClassTable::code_dispatch_tables()
@@ -702,26 +735,20 @@ void CgenClassTable::code_constants()
   code_bools(boolclasstag);
 }
 
-//Assign class tags and build a list of class names ordered by class tags
-void CgenClassTable::setClassTags()
+//Assign class tag to this class and its name to the class list
+void CgenClassTable::setClassTag(CgenNode* node)
 {
-  classtagindex=0;
-  classNames.clear();
-  List<CgenNode>* nodes = nds;
-  //Loop over the list of all classes (except for No_class, SELF_TYPE and prim_slot)
-  for(CgenNode* node=nodes->hd(); node!=NULL; nodes=nodes->tl())
-  {
-    node->setClassTag(classtagindex);
-    if (node->name->equal_string("String",6)==1) stringclasstag = classtagindex;
-    else if (node->name->equal_string("Int",3)==1) intclasstag = classtagindex;
-    else if (node->name->equal_string("Bool",4)==1) boolclasstag = classtagindex;
-    //add the current class name to the list of class names
-    std::string className(node->name->get_string(),node->name->get_len());
-    classNames.push_back(className);
-    classtagindex++;
-  }
+  node->setClassTag(classtagindex);
+  if (node->name->equal_string("String",6)==1) stringclasstag = classtagindex;
+  else if (node->name->equal_string("Int",3)==1) intclasstag = classtagindex;
+  else if (node->name->equal_string("Bool",4)==1) boolclasstag = classtagindex;
+  //add the current class name to the list of class names
+  std::string className(node->name->get_string(),node->name->get_len());
+  classNames.push_back(className);
+  classtagindex++;
 }
 
+//Set methods and attributes from the fiven fromObj to this class node
 void CgenNode::setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride)
 {
   //Loop over features
@@ -759,15 +786,22 @@ void CgenNode::setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride)
 //Set the all the attributes and methods of every class in the inheritance tree
 void CgenClassTable::setClassAttributesAndMethods()
 {
+  //Initialize
+  classtagindex=0;
+  classNames.clear();
+  //Start from the root node
   CgenNode* rootNode = root();
+  setClassTag(rootNode);
   CgenNode* curNode = NULL;
   rootNode->setMethodsAndAttributes(rootNode,false);
   std::stack<CgenNode*> nodeStack;
   nodeStack.push(rootNode);
+  //DFS traversal through the class nodes
   while(!nodeStack.empty())
   {
     curNode = nodeStack.top();
     nodeStack.pop();
+    setClassTag(curNode);
     curNode->setMethodsAndAttributes(curNode->get_parentnd(),false); //add parent class methods and attributes
     curNode->setMethodsAndAttributes(curNode,true); //add this object's class methods and attributes
     List<CgenNode>* list = curNode->get_children();
@@ -777,18 +811,41 @@ void CgenClassTable::setClassAttributesAndMethods()
 
 CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
 {
-   //Class tags for string, int and bool set in install_basic_classes()
-   //Variables: intclasstag, stringclasstag and boolclasstag
-
    enterscope();
    if (cgen_debug) cout << "Building CgenClassTable" << endl;
    install_basic_classes();
    install_classes(classes);
    build_inheritance_tree();
-   setClassTags(); //assigns a unique class tag to every class
-   setClassAttributesAndMethods(); //find every class's list of attributes and methods
+
+   setClassAttributesAndMethods(); //find every class's list of attributes and methods and set the class tags
    code();
    exitscope();
+}
+
+//Look up a class node
+CgenNode* CgenClassTable::getClassByName(Symbol className)
+{
+  List<CgenNode>* nodes = nds;
+  CgenNode* node;
+  for(;nodes;nodes=nodes->tl())
+  {
+    node = nodes->hd();
+    if (node->name==className) return node;
+  }
+  return NULL;
+}
+
+//Get the attribute or method offset
+int CgenNode::getFeatureOffsetByName(Symbol featureName, bool isAttribute)
+{
+  std::vector<Feature> feats;
+  if (isAttribute) feats = attributes;
+  else feats = methods;
+  for(unsigned int i=0;i<feats.size();i++)
+  {
+    if (feats[i]->getName()==featureName) return i;
+  }
+  return -1;
 }
 
 void CgenClassTable::install_basic_classes()
@@ -1034,6 +1091,7 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
    basic_status(bstatus)
 { 
    stringtable.add_string(name->get_string());          // Add class name to string table
+   classTable = ct;
 }
 
 
@@ -1050,58 +1108,58 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 void class__class::code(ostream &s, CgenClassTable* table) {
 }
 
-void assign_class::code(ostream &s) {
+void assign_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void static_dispatch_class::code(ostream &s) {
+void static_dispatch_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void dispatch_class::code(ostream &s) {
+void dispatch_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void cond_class::code(ostream &s) {
+void cond_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void loop_class::code(ostream &s) {
+void loop_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void typcase_class::code(ostream &s) {
+void typcase_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void block_class::code(ostream &s) {
+void block_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void let_class::code(ostream &s) {
+void let_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void plus_class::code(ostream &s) {
+void plus_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void sub_class::code(ostream &s) {
+void sub_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void mul_class::code(ostream &s) {
+void mul_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void divide_class::code(ostream &s) {
+void divide_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void neg_class::code(ostream &s) {
+void neg_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void lt_class::code(ostream &s) {
+void lt_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void eq_class::code(ostream &s) {
+void eq_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void leq_class::code(ostream &s) {
+void leq_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void comp_class::code(ostream &s) {
+void comp_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void int_const_class::code(ostream& s)  
+void int_const_class::code(ostream& s, CgenClassTable* table)  
 {
   //
   // Need to be sure we have an IntEntry *, not an arbitrary Symbol
@@ -1109,26 +1167,26 @@ void int_const_class::code(ostream& s)
   emit_load_int(ACC,inttable.lookup_string(token->get_string()),s);
 }
 
-void string_const_class::code(ostream& s)
+void string_const_class::code(ostream& s, CgenClassTable* table)
 {
   emit_load_string(ACC,stringtable.lookup_string(token->get_string()),s);
 }
 
-void bool_const_class::code(ostream& s)
+void bool_const_class::code(ostream& s, CgenClassTable* table)
 {
   emit_load_bool(ACC, BoolConst(val), s);
 }
 
-void new__class::code(ostream &s) {
+void new__class::code(ostream &s, CgenClassTable* table) {
 }
 
-void isvoid_class::code(ostream &s) {
+void isvoid_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void no_expr_class::code(ostream &s) {
+void no_expr_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void object_class::code(ostream &s) {
+void object_class::code(ostream &s, CgenClassTable* table) {
 }
 
 
