@@ -657,6 +657,26 @@ void CgenClassTable::code_class_obj_table()
   }
 }
 
+
+void setUpCallee(ostream &s)
+{
+  emit_addiu(SP, SP, -3 * WORD_SIZE, s);
+  emit_store(FP, 3, SP, s);
+  emit_store(SELF, 2, SP, s);
+  emit_store(RA, 1, SP, s);
+  emit_addiu(FP, SP, WORD_SIZE, s);
+  emit_move(SELF, ACC, s);
+}
+
+void tearDownCallee(int nArgs,ostream &s)
+{
+  emit_load(FP,3,SP,s);
+  emit_load(SELF,2,SP,s);
+  emit_load(RA,1,SP,s);
+  emit_addiu(SP,SP,(3+nArgs)*WORD_SIZE,s);
+  emit_return(s);
+}
+
 void attr_class::code_init_attr(ostream &s,CgenNode* node)
 {
   if (init!=NULL)
@@ -671,10 +691,11 @@ void CgenNode::code_init_method(ostream &s)
 {
   emit_init_ref(name,s);
   s << LABEL;
+  setUpCallee(s);
   //First call the parent class's initialization method
   if ((get_parentnd()!=NULL) && (get_parentnd()->name!=No_class))
   {
-    //
+    s << JAL << get_parentnd()->name << DISPTAB_SUFFIX << endl;
   }
   //Loop over all the features and init attributes
   Feature feature;
@@ -683,6 +704,8 @@ void CgenNode::code_init_method(ostream &s)
     feature = features->nth(i);
     if (!feature->isMethod()) feature->code_init_attr(s,this);
   }
+  emit_move(ACC,SELF,s);
+  tearDownCallee(0,s);
 }
 
 //Emit code for each init method of every class
