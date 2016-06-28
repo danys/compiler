@@ -1054,7 +1054,24 @@ void CgenNode::set_parentnd(CgenNodeP p)
   parentnd = p;
 }
 
+void CgenNode::code(ostream &s,CgenClassTable* table)
+{
+  for(int i=features->first();features->more(i);i=features->next(i))
+  {
+    features->nth(i)->code(s,table);
+  }
+}
 
+void CgenClassTable::code_program_methods()
+{
+  CgenNode* node = NULL;
+  for(List<CgenNode>* l = nds;l;l=l->tl())
+  {
+    node = l->hd();
+    if (node->basic()) continue; //ignore basic classes which are implemented in the runtime system
+    node->code(str,this);
+  }
+}
 
 void CgenClassTable::code()
 {
@@ -1086,6 +1103,9 @@ void CgenClassTable::code()
 
   if (cgen_debug) cout << "coding class initialization methods" << endl;
   code_class_init_methods();
+
+  if (cgen_debug) cout << "coding program methods" << endl;
+  code_program_methods();
 }
 
 int CgenClassTable::findClassTag(Symbol sym)
@@ -1127,6 +1147,10 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 //   constant integers, strings, and booleans are provided.
 //
 //*****************************************************************
+
+void method_class::code(ostream &s,CgenClassTable* table){
+  //TODO
+}
 
 void class__class::code(ostream &s, CgenClassTable* table) {
 }
