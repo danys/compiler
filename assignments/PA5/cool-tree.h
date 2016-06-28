@@ -13,6 +13,7 @@
 #include "cool-tree.handcode.h"
 
 class CgenClassTable;
+class CgenNode;
 
 
 // define the class for phylum
@@ -28,7 +29,6 @@ public:
    Program_EXTRAS
 #endif
 };
-
 
 // define simple phylum - Class_
 typedef class Class__class *Class_;
@@ -53,7 +53,8 @@ public:
    virtual Feature copy_Feature() = 0;
    virtual bool isMethod() = 0;
    virtual Symbol getName() = 0;
-
+   virtual void code_init_attr(ostream &s,CgenNode* node) = 0;
+   virtual void code(ostream &s,CgenClassTable* table) = 0;
 #ifdef Feature_EXTRAS
    Feature_EXTRAS
 #endif
@@ -81,7 +82,7 @@ class Expression_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Expression(); }
    virtual Expression copy_Expression() = 0;
-
+   virtual void code(ostream &s, CgenClassTable* table)=0;
 #ifdef Expression_EXTRAS
    Expression_EXTRAS
 #endif
@@ -194,6 +195,8 @@ public:
    void dump(ostream& stream, int n);
    virtual bool isMethod(){return true;}
    virtual Symbol getName(){return name;}
+   virtual void code_init_attr(ostream &s,CgenNode* node){}
+   virtual void code(ostream &s,CgenClassTable* table);
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -220,6 +223,8 @@ public:
    void dump(ostream& stream, int n);
    virtual bool isMethod(){return false;}
    virtual Symbol getName(){return name;}
+   virtual void code_init_attr(ostream &s,CgenNode* node);
+   virtual void code(ostream &s,CgenClassTable* table){}
 
 #ifdef Feature_SHARED_EXTRAS
    Feature_SHARED_EXTRAS
@@ -288,6 +293,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -314,6 +320,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+    virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -338,6 +345,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -362,6 +370,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -384,6 +393,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -406,6 +416,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -426,6 +437,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -452,6 +464,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -474,6 +487,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -496,6 +510,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -518,6 +533,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -540,6 +556,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -560,6 +577,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -582,6 +600,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -604,6 +623,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -626,6 +646,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -646,6 +667,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -666,6 +688,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -686,6 +709,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -706,6 +730,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -726,6 +751,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -746,6 +772,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -764,6 +791,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
@@ -784,6 +812,7 @@ public:
    }
    Expression copy_Expression();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Expression_SHARED_EXTRAS
    Expression_SHARED_EXTRAS
