@@ -1056,6 +1056,7 @@ void CgenNode::set_parentnd(CgenNodeP p)
 
 void CgenNode::code(ostream &s,CgenClassTable* table)
 {
+  table->currentNode = this; //store the current CgenNode
   for(int i=features->first();features->more(i);i=features->next(i))
   {
     features->nth(i)->code(s,table);
@@ -1149,6 +1150,9 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 //*****************************************************************
 
 void method_class::code(ostream &s,CgenClassTable* table){
+  //Emit method label
+  emit_method_ref(table->currentNode->name,name,s);
+  s << LABEL;
   //TODO
 }
 
