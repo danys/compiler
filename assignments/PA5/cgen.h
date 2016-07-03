@@ -41,6 +41,7 @@ private:
    void code_class_init_methods();
    void code_class_method_defs();
    void code_dispatch_tables();
+   void code_program_methods();
 
 // The following creates an inheritance graph from
 // a list of classes.  The graph is implemented as
@@ -61,8 +62,19 @@ public:
    void code();
    CgenNodeP root();
    CgenNode* getClassByName(Symbol className);
+   CgenNode* currentNode;
 };
 
+class Location
+{
+ private:
+  char* reg;
+  int offset;
+ public:
+  Location(char* reg_, int offset_){reg = reg_; offset = offset_;}
+  char* getRegister(){return reg;}
+  int getOffset(){return offset;}
+};
 
 class CgenNode : public class__class {
 private: 
@@ -87,9 +99,12 @@ public:
    void setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride);
    std::vector<Feature> attributes;
    std::vector<Feature> methods;
+   SymbolTable<Symbol,Location>* locations; 
+
    CgenClassTable* classTable;
    int getFeatureOffsetByName(Symbol featureName, bool isAttribute);
    void code_init_method(ostream &s);
+   virtual void code(ostream &s, CgenClassTable* table);
 };
 
 class BoolConst 
@@ -101,4 +116,3 @@ class BoolConst
   void code_def(ostream&, int boolclasstag);
   void code_ref(ostream&) const;
 };
-
