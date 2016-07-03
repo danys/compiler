@@ -1153,13 +1153,27 @@ void method_class::code(ostream &s,CgenClassTable* table){
   //Emit method label
   emit_method_ref(table->currentNode->name,name,s);
   s << LABEL;
-  //TODO
+  //Generate method code
+  setUpCallee(s);
+  table->currentNode->locations->enterscope();
+  Formal f; //name, type_decl
+  for(int i=formals->first();formals->more(i);i=formals->next(i))
+  {
+    f = formals->nth(i);
+    table->currentNode->locations->addid(f->getName(),new Location(FP,FRAME_OFFSET+formals->len()-i-1));
+  }
+  expr->code(s,table);
+  table->currentNode->locations->exitscope();
+  tearDownCallee(formals->len(),s);
 }
 
-void class__class::code(ostream &s, CgenClassTable* table) {
-}
+void class__class::code(ostream &s, CgenClassTable* table){};
 
-void assign_class::code(ostream &s, CgenClassTable* table) {
+void assign_class::code(ostream &s, CgenClassTable* table)
+{
+  expr->code(s,table);
+  int offset = table->currentNode->getFeatureOffsetByName(name,true);
+  emit_store(ACC,offset+DEFAULT_OBJFIELDS,SELF,s);
 }
 
 void static_dispatch_class::code(ostream &s, CgenClassTable* table) {
