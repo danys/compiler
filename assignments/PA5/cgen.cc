@@ -1242,7 +1242,24 @@ void bool_const_class::code(ostream& s, CgenClassTable* table)
   emit_load_bool(ACC, BoolConst(val), s);
 }
 
-void new__class::code(ostream &s, CgenClassTable* table) {
+void new__class::code(ostream &s, CgenClassTable* table)
+{
+  if (type_name==SELF_TYPE)
+  {
+    //Get the class tag
+    emit_load(T1,0,SELF,s);
+    //Find the init method of this class in class_objTab => word position = classTag*2
+    emit_load_imm(T2,2,s);
+    emit_mul(T1,T2,T1,s);
+    emit_load_address(T2,CLASSOBJTAB,s);
+    addu(T1,T2,T1);
+    emit_load(ACC,0,T1,s); //load
+  }
+  else if (type_name==Bool) emit_load_bool(ACC,falsebool,s);
+  else
+  {
+    //
+  }
 }
 
 void isvoid_class::code(ostream &s, CgenClassTable* table) {
