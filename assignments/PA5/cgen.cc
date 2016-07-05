@@ -325,6 +325,11 @@ static void emit_push(char *reg, ostream& str)
   emit_addiu(SP,SP,-4,str);
 }
 
+static void emit_instantiate(ostream &s)
+{
+  s << JAL << emit_method_ref(Object,copy,s) << endl;
+}
+
 //
 // Fetch the integer value in an Int object.
 // Emits code to fetch the integer value of the Integer object pointed
@@ -1253,12 +1258,24 @@ void new__class::code(ostream &s, CgenClassTable* table)
     emit_mul(T1,T2,T1,s);
     emit_load_address(T2,CLASSOBJTAB,s);
     addu(T1,T2,T1);
-    emit_load(ACC,0,T1,s); //load
+    emit_load(ACC,0,T1,s); //load reference to prototype object into ACC
+    //Create a new instance of the class
+    emit_instantiate(s);
+    //Call initialization method
+    emit_load(T1,1,T2);
+    s << JALR << T1 << endl;
   }
   else if (type_name==Bool) emit_load_bool(ACC,falsebool,s);
   else
   {
-    //
+    //Use the type name to call the copy method and the init method
+    emit_partial_load(ACC,s);
+    emit_prototype_ref(type_name,s);
+    s << endl;
+    emit_instantiate(s);
+    s << JAL;
+    emit_init_ref(type_name,s);
+    s << endl;
   }
 }
 
