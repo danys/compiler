@@ -116,6 +116,8 @@ static char *gc_collect_names[] =
 BoolConst falsebool(FALSE);
 BoolConst truebool(TRUE);
 
+static int curLabel = 0;
+
 //*********************************************************
 //
 // Define method for code generation
@@ -327,7 +329,9 @@ static void emit_push(char *reg, ostream& str)
 
 static void emit_instantiate(ostream &s)
 {
-  s << JAL << emit_method_ref(Object,copy,s) << endl;
+  s << JAL;
+  emit_method_ref(Object,copy,s);
+  s << endl;
 }
 
 //
@@ -1184,7 +1188,24 @@ void assign_class::code(ostream &s, CgenClassTable* table)
 void static_dispatch_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void dispatch_class::code(ostream &s, CgenClassTable* table) {
+void dispatch_class::code(ostream &s, CgenClassTable* table)
+{
+  //Evaluate actual function parameters
+  for(int i=actual->first();actual->more(i);i=actual->next(i))
+  {
+    actual->nth(i)->code(s,table);
+    emit_push(ACC,s); //push actual params on stack for callee
+  }
+  //Evaluate expr
+  expr->code(s,table); //current expr object in ACC after this line
+  //Check if dispatch on void
+  emit_bne(ACC,ZERO,curLabel,s);
+  StringEntry* entry = stringtable.lookup_string(table->currentNode->get_filename()->get_string());
+  emit_load_string(ACC,entry,s);
+  emit_load_imm(T1,table->currentNode->get_line_number(),s);
+  emit_jal(_dispatch_abort,s); //dispatch abort expects line number in T1
+  emit_label_def(curLabel,s);
+  //TODO
 }
 
 void cond_class::code(ostream &s, CgenClassTable* table) {
@@ -1257,20 +1278,20 @@ void new__class::code(ostream &s, CgenClassTable* table)
     emit_load_imm(T2,2,s);
     emit_mul(T1,T2,T1,s);
     emit_load_address(T2,CLASSOBJTAB,s);
-    addu(T1,T2,T1);
+    emit_addu(T1,T2,T1,s);
     emit_load(ACC,0,T1,s); //load reference to prototype object into ACC
     //Create a new instance of the class
     emit_instantiate(s);
     //Call initialization method
-    emit_load(T1,1,T2);
+    emit_load(T1,1,T2,s);
     s << JALR << T1 << endl;
   }
   else if (type_name==Bool) emit_load_bool(ACC,falsebool,s);
   else
   {
     //Use the type name to call the copy method and the init method
-    emit_partial_load(ACC,s);
-    emit_prototype_ref(type_name,s);
+    emit_partial_load_address(ACC,s);
+    emit_protobj_ref(type_name,s);
     s << endl;
     emit_instantiate(s);
     s << JAL;
