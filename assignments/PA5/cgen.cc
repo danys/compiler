@@ -1185,10 +1185,7 @@ void assign_class::code(ostream &s, CgenClassTable* table)
   emit_store(ACC,offset+DEFAULT_OBJFIELDS,SELF,s);
 }
 
-void static_dispatch_class::code(ostream &s, CgenClassTable* table) {
-}
-
-void dispatch_class::code(ostream &s, CgenClassTable* table)
+void dispatch_handler(Expression expr, Symbol type_name, Symbol name, Expressions actual,CgenClassTable* table, ostream &s)
 {
   //Evaluate actual function parameters
   for(int i=actual->first();actual->more(i);i=actual->next(i))
@@ -1203,9 +1200,37 @@ void dispatch_class::code(ostream &s, CgenClassTable* table)
   StringEntry* entry = stringtable.lookup_string(table->currentNode->get_filename()->get_string());
   emit_load_string(ACC,entry,s);
   emit_load_imm(T1,table->currentNode->get_line_number(),s);
-  emit_jal(_dispatch_abort,s); //dispatch abort expects line number in T1
+  emit_jal("_dispatch_abort",s); //dispatch abort expects line number in T1
   emit_label_def(curLabel,s);
-  //TODO
+  curLabel++;
+  if (type_name==No_type)
+  {
+    //Dynamic dispatch
+    emit_load(T1,DISPTABLE_OFFSET,ACC,s); //load dispatch table reference into T1
+    type_name = expr->get_type();
+  }
+  else
+  {
+    //Static dispatch
+    emit_partial_load_address(T1,s); //Load dispatch table reference into T1
+    emit_disptable_ref(type_name,s);
+    s << endl;
+  }
+  //Look up method offset and jump to function
+  CgenNode* classNode = table->getClassByName(type_name);
+  int offset = classNode->getFeatureOffsetByName(name,true);
+  emit_load(T1,offset,T1,s);
+  emit_jalr(T1,s);
+}
+
+void static_dispatch_class::code(ostream &s, CgenClassTable* table)
+{
+  dispatch_handler(expr,type_name,name,actual,table,s);
+}
+
+void dispatch_class::code(ostream &s, CgenClassTable* table)
+{
+  dispatch_handler(expr,No_type,name,actual,table,s);
 }
 
 void cond_class::code(ostream &s, CgenClassTable* table) {
