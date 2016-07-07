@@ -1233,7 +1233,21 @@ void dispatch_class::code(ostream &s, CgenClassTable* table)
   dispatch_handler(expr,No_type,name,actual,table,s);
 }
 
-void cond_class::code(ostream &s, CgenClassTable* table) {
+void cond_class::code(ostream &s, CgenClassTable* table)
+{
+  pred->code(s,table);
+  emit_load_bool(T1,truebool,s);
+  int label = curLabel;
+  curLabel+=2; //we need two new labels
+  //Check if pred is true or false => branch
+  emit_beq(ACC,T1,label,s);
+  //Fall through if false
+  else_exp->code(s,table);
+  emit_branch(label+1,s); //Jump over false code branch
+  //Label true: Land here if true
+  emit_label_ref(label,s);
+  then_exp->code(s,table);
+  emit_label_ref(label+1,s);
 }
 
 void loop_class::code(ostream &s, CgenClassTable* table) {
