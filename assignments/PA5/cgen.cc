@@ -1250,19 +1250,34 @@ void cond_class::code(ostream &s, CgenClassTable* table)
   emit_label_ref(label+1,s);
 }
 
-void loop_class::code(ostream &s, CgenClassTable* table) {
+void loop_class::code(ostream &s, CgenClassTable* table)
+{
+  int label = curLabel;
+  curLabel+=2;
+  emit_label_def(label,s);
+  pred->code(s,table);
+  emit_load_bool(T1,truebool,s);
+  emit_bne(ACC,T1,label+1,s); //if predicate does not hold: branch and quit loop
+  body->code(s,table);
+  emit_branch(label,s);
+  emit_label_def(label+1,s);
+  emit_load_imm(ACC,0,s);
 }
 
 void typcase_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void block_class::code(ostream &s, CgenClassTable* table) {
+void block_class::code(ostream &s, CgenClassTable* table)
+{
+  for(int i=body->first();body->more(i);i=body->next(i)) body->nth(i)->code(s,table);
 }
 
 void let_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void plus_class::code(ostream &s, CgenClassTable* table) {
+void plus_class::code(ostream &s, CgenClassTable* table)
+{
+  
 }
 
 void sub_class::code(ostream &s, CgenClassTable* table) {
@@ -1274,7 +1289,13 @@ void mul_class::code(ostream &s, CgenClassTable* table) {
 void divide_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void neg_class::code(ostream &s, CgenClassTable* table) {
+void neg_class::code(ostream &s, CgenClassTable* table)
+{
+  e1->code(s);
+  emit_instantiate(s);
+  emit_fetch_int(T1,ACC,s);
+  emit_neg(T1,T1,s);
+  emit_store_int(T1,ACC,s);
 }
 
 void lt_class::code(ostream &s, CgenClassTable* table) {
@@ -1286,7 +1307,20 @@ void eq_class::code(ostream &s, CgenClassTable* table) {
 void leq_class::code(ostream &s, CgenClassTable* table) {
 }
 
-void comp_class::code(ostream &s, CgenClassTable* table) {
+void comp_class::code(ostream &s, CgenClassTable* table)
+{
+  int label = curLabel
+  curLabel+=2;
+  e1->code(s);
+  emit_load_bool(T1,truebool,s);
+  emit_beq(ACC,T1,label,s);
+  //False in ACC => convert to true
+  emit_load_bool(ACC,truebool,s);
+  emit_branch(label+1,s);
+  //True in ACC => convert to false
+  emit_label_def(label,s);
+  emit_load_bool(ACC,falsebool,s);
+  emit_label_def(label+1,s);
 }
 
 void int_const_class::code(ostream& s, CgenClassTable* table)  
@@ -1339,13 +1373,32 @@ void new__class::code(ostream &s, CgenClassTable* table)
   }
 }
 
-void isvoid_class::code(ostream &s, CgenClassTable* table) {
+void isvoid_class::code(ostream &s, CgenClassTable* table)
+{
+  int label = curLabel;
+  curLabel+=2;
+  e1->code(s,table);
+  emit_beq(ACC,ZERO,label,s);
+  emit_load_bool(ACC,falsebool,s);
+  emit_branch(label+1,s);
+  emit_label_def(label,s);
+  emit_load_bool(ACC,truebool,s);
+  emit_label_def(label+1,s);
 }
 
-void no_expr_class::code(ostream &s, CgenClassTable* table) {
+void no_expr_class::code(ostream &s, CgenClassTable* table)
+{
+  emit_load_imm(ACC,0,s);
 }
 
-void object_class::code(ostream &s, CgenClassTable* table) {
+void object_class::code(ostream &s, CgenClassTable* table)
+{
+  if (name==self) emit_move(ACC,SELF,s);
+  else
+  {
+    Location* loc = table->currentNode->locations->lookup(name);
+    emit_load(ACC,loc->getOffset(),loc->getRegister(),s);
+  }
 }
 
 
