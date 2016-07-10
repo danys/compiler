@@ -1275,43 +1275,103 @@ void block_class::code(ostream &s, CgenClassTable* table)
 void let_class::code(ostream &s, CgenClassTable* table) {
 }
 
+void loadTwoInts(Expression e1, Expression e2, ostream &s, CgenClassTable* table)
+{
+  e1->code(s,table);
+  emit_fetch_int(ACC,ACC,s);
+  emit_push(ACC,s); //also changes SP: emit_addiu(SP,SP,-4,s)
+  e2->code(s,table);
+  emit_fetch_int(T2,ACC,s);
+  emit_load(T1,1,SP,s);
+  emit_addiu(SP,SP,4,s);
+  emit_instantiate(s); //create new int object (ACC contains Int object)
+}
+
 void plus_class::code(ostream &s, CgenClassTable* table)
 {
-  
+  loadTwoInts(e1,e2,s,table); //ints end up in T1, T2. A new Int is in ACC
+  emit_addu(T1,T1,T2,s);
+  emit_store_int(T1,ACC,s);
 }
 
-void sub_class::code(ostream &s, CgenClassTable* table) {
+void sub_class::code(ostream &s, CgenClassTable* table)
+{
+  loadTwoInts(e1,e2,s,table);
+  emit_sub(T1,T1,T2,s);
+  emit_store_int(T1,ACC,s);
 }
 
-void mul_class::code(ostream &s, CgenClassTable* table) {
+void mul_class::code(ostream &s, CgenClassTable* table)
+{
+  loadTwoInts(e1,e2,s,table);
+  emit_mul(T1,T1,T2,s);
+  emit_store_int(T1,ACC,s);
 }
 
-void divide_class::code(ostream &s, CgenClassTable* table) {
+void divide_class::code(ostream &s, CgenClassTable* table)
+{
+  loadTwoInts(e1,e2,s,table);
+  emit_div(T1,T1,T2,s);
+  emit_store_int(T1,ACC,s);
 }
 
 void neg_class::code(ostream &s, CgenClassTable* table)
 {
-  e1->code(s);
+  e1->code(s,table);
   emit_instantiate(s);
   emit_fetch_int(T1,ACC,s);
   emit_neg(T1,T1,s);
   emit_store_int(T1,ACC,s);
 }
 
-void lt_class::code(ostream &s, CgenClassTable* table) {
+void trueOrFalseBoolResult(ostream &s)
+{
+  //Store false boolean in ACC
+  emit_load_bool(ACC,falsebool,s);
+  emit_branch(curLabel+1,s);
+  emit_label_def(curLabel,s);
+  //Otherwise store true boolean in ACC
+  emit_load_bool(ACC,truebool,s);
+  emit_label_def(curLabel+1,s);
+  curLabel+=2;
 }
 
-void eq_class::code(ostream &s, CgenClassTable* table) {
+void lt_class::code(ostream &s, CgenClassTable* table)
+{
+  loadTwoInts(e1,e2,s,table);
+  emit_blt(T1,T2,curLabel,s);
+  trueOrFalseBoolResult(s);
 }
 
-void leq_class::code(ostream &s, CgenClassTable* table) {
+void eq_class::code(ostream &s, CgenClassTable* table)
+{
+  e1->code(s,table);
+  emit_push(ACC,s); //push on to stack
+  e2->code(s,table);
+  emit_move(T2,ACC,s);
+  emit_load(T1,1,SP,s);
+  emit_addiu(SP,SP,WORD_SIZE,s);
+  //First check if the pointers of the two objects are equal
+  emit_beq(T1,T2,curLabel,s); //If equal jump over equality_test
+  emit_load_bool(ACC,truebool,s);
+  emit_load_bool(A1,falsebool,s);
+  emit_jal("equality_test",s); //if equal ACC is returned otherwise A1
+  emit_label_def(curLabel,s);
+  curLabel++;
+}
+
+void leq_class::code(ostream &s, CgenClassTable* table)
+{
+  loadTwoInts(e1,e2,s,table);
+  emit_bleq(T1,T2,curLabel,s);
+  trueOrFalseBoolResult(s);
 }
 
 void comp_class::code(ostream &s, CgenClassTable* table)
 {
-  int label = curLabel
+  int label = curLabel;
   curLabel+=2;
-  e1->code(s);
+  e1->code(s,table);
   emit_load_bool(T1,truebool,s);
   emit_beq(ACC,T1,label,s);
   //False in ACC => convert to true
