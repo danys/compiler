@@ -117,6 +117,7 @@ BoolConst falsebool(FALSE);
 BoolConst truebool(TRUE);
 
 static int curLabel = 0;
+static int varsFPOffset = 1;
 
 //*********************************************************
 //
@@ -1264,7 +1265,21 @@ void loop_class::code(ostream &s, CgenClassTable* table)
   emit_load_imm(ACC,0,s);
 }
 
-void typcase_class::code(ostream &s, CgenClassTable* table) {
+void branch_class::code(ostream &s, CgenClassTable* table)
+{
+  table->currentNode->locations->enterscope();
+  table->currentNode->locations->addid(name,new Location(FP,-varsFPOffset));
+  emit_push(ACC,s); //push e0 an stack
+  varsFPOffset++;
+  expr->code(s,table);
+  emit_addiu(SP,SP,4,s);
+  varsFPOffset--;
+  table->currentNode->locations->exitscope();
+}
+
+void typcase_class::code(ostream &s, CgenClassTable* table)
+{
+  //TODO Case selection
 }
 
 void block_class::code(ostream &s, CgenClassTable* table)
@@ -1272,7 +1287,31 @@ void block_class::code(ostream &s, CgenClassTable* table)
   for(int i=body->first();body->more(i);i=body->next(i)) body->nth(i)->code(s,table);
 }
 
-void let_class::code(ostream &s, CgenClassTable* table) {
+void let_class::code(ostream &s, CgenClassTable* table)
+{
+  init->code(s,table);
+  table->currentNode->locations->enterscope();
+  table->currentNode->locations->addid(identifier,new Location(FP,-varsFPOffset));
+  if (init->type==NULL)
+  {
+    if (type_decl==Str)
+    {
+      StringEntry* entry = stringtable.lookup_string("");
+      emit_load_string(ACC,entry,s);
+    }
+    else if (type_decl==Int)
+    {
+      IntEntry* entry = inttable.lookup_string("0");
+      emit_load_int(ACC,entry,s);
+    }
+    else if (type_decl==Bool) emit_load_bool(ACC,falsebool,s);
+  }
+  emit_push(ACC,s);
+  varsFPOffset++;
+  body->code(s,table);
+  emit_addiu(SP,SP,4,s);
+  varsFPOffset--;
+  table->currentNode->locations->exitscope();
 }
 
 void loadTwoInts(Expression e1, Expression e2, ostream &s, CgenClassTable* table)
@@ -1280,10 +1319,12 @@ void loadTwoInts(Expression e1, Expression e2, ostream &s, CgenClassTable* table
   e1->code(s,table);
   emit_fetch_int(ACC,ACC,s);
   emit_push(ACC,s); //also changes SP: emit_addiu(SP,SP,-4,s)
+  varsFPOffset++;
   e2->code(s,table);
   emit_fetch_int(T2,ACC,s);
   emit_load(T1,1,SP,s);
   emit_addiu(SP,SP,4,s);
+  varsFPOffset--;
   emit_instantiate(s); //create new int object (ACC contains Int object)
 }
 
@@ -1347,10 +1388,12 @@ void eq_class::code(ostream &s, CgenClassTable* table)
 {
   e1->code(s,table);
   emit_push(ACC,s); //push on to stack
+  varsFPOffset++;
   e2->code(s,table);
   emit_move(T2,ACC,s);
   emit_load(T1,1,SP,s);
-  emit_addiu(SP,SP,WORD_SIZE,s);
+  emit_addiu(SP,SP,4,s);
+  varsFPOffset--;
   //First check if the pointers of the two objects are equal
   emit_beq(T1,T2,curLabel,s); //If equal jump over equality_test
   emit_load_bool(ACC,truebool,s);
