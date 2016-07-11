@@ -68,6 +68,7 @@ class Formal_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Formal(); }
    virtual Formal copy_Formal() = 0;
+   virtual Symbol getName() = 0;
 
 #ifdef Formal_EXTRAS
    Formal_EXTRAS
@@ -96,6 +97,7 @@ class Case_class : public tree_node {
 public:
    tree_node *copy()		 { return copy_Case(); }
    virtual Case copy_Case() = 0;
+   virtual void code(ostream &s, CgenClassTable* table)=0;
 
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -247,6 +249,7 @@ public:
    }
    Formal copy_Formal();
    void dump(ostream& stream, int n);
+   virtual Symbol getName(){return name;};
 
 #ifdef Formal_SHARED_EXTRAS
    Formal_SHARED_EXTRAS
@@ -271,6 +274,7 @@ public:
    }
    Case copy_Case();
    void dump(ostream& stream, int n);
+   virtual void code(ostream &s, CgenClassTable* table);
 
 #ifdef Case_SHARED_EXTRAS
    Case_SHARED_EXTRAS
