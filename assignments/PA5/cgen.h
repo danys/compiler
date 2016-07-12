@@ -56,6 +56,7 @@ private:
    int findClassTag(Symbol sym);
    void setClassTag(CgenNode* node);
    void setClassAttributesAndMethods();
+   CgenNode* getDefiningNode(CgenNode* startNode, Symbol funcName);
 
 public:
    CgenClassTable(Classes, ostream& str);
