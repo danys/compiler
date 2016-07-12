@@ -139,11 +139,11 @@ void program_class::cgen(ostream &os)
 
   initialize_constants();
   CgenClassTable *codegen_classtable = new CgenClassTable(classes,os);
-  cout << "Walking AST and generating stack machine code" << endl;
+  /*cout << "Walking AST and generating stack machine code" << endl;
   for(int i=classes->first();classes->more(i);i=classes->next(i))
   {
     classes->nth(i)->code(os,codegen_classtable);
-  }
+  }*/
   os << "\n# end of generated code\n";
 }
 
@@ -596,16 +596,16 @@ void CgenClassTable::code_class_name_tab()
   //of the class in question
   StringEntry* classSym;
   //Put all class names as string objects in memory
-  for(unsigned int i=0;i<classNames.size();i++)
+  /*for(unsigned int i=0;i<classNames.size();i++)
   {
     classSym = stringtable.add_string((char*)classNames[i].c_str(),classNames[i].size());
     classSym->code_def(str,stringclasstag);
-  }
+  }*/
   //Output pointers to the string objects
   str << CLASSNAMETAB << LABEL;
   for(unsigned int i=0;i<classNames.size();i++)
   {
-    classSym = stringtable.add_string((char*)classNames[i].c_str(),classNames[i].size());
+    classSym = stringtable.lookup_string((char*)classNames[i].c_str());
     str << WORD;
     classSym->code_ref(str);
     str << endl;
@@ -626,7 +626,7 @@ void CgenClassTable::code_prototype_objects()
     //Size = DEFAULT_OBJFIELDS+NUMBER_OF_ATTR+NUMBER_OF_INHER_ATTR
     objSize = DEFAULT_OBJFIELDS + node->attributes.size();
     str << WORD << "-1" << endl;
-    str << WORD << currentClassTag << PROTOBJ_SUFFIX << LABEL     // label
+    str << node->get_name() << PROTOBJ_SUFFIX << LABEL     // label
       << WORD << currentClassTag << endl                       // class tag
       << WORD << objSize << endl   // object size
       << WORD << node->get_name() << DISPTAB_SUFFIX << endl;          // dispatch table
@@ -658,10 +658,12 @@ void CgenClassTable::code_prototype_objects()
 
 void CgenClassTable::code_class_obj_table()
 {
-  str << WORD << CLASSOBJTAB << LABEL;
+  str << CLASSOBJTAB << LABEL;
   List<CgenNode>* nodes = nds;
-  for(CgenNode* node=nodes->hd(); node!=NULL; nodes=nodes->tl())
+  CgenNode* node;
+  for(; nodes!=NULL; nodes=nodes->tl())
   {
+    node = nodes->hd();
     str << WORD << node->get_name() << PROTOBJ_SUFFIX << endl;
     str << WORD << node->get_name() << CLASSINIT_SUFFIX << endl;
   }
@@ -724,20 +726,48 @@ void CgenClassTable::code_class_init_methods()
   List<CgenNode>* nodes = nds;
   for(;nodes;nodes=nodes->tl())
   {
+    currentNode = nodes->hd();
     nodes->hd()->code_init_method(str);
   }
+}
+
+//Walk up the class hierarchy from a start node until the sought method is found
+CgenNode* CgenClassTable::getDefiningNode(CgenNode* startNode, Symbol funcName)
+{
+  while(startNode->getName()!=No_class)
+  {
+    Features fs = startNode->getFeatures();
+    Feature f;
+    for(int i=fs->first();fs->more(i);i=fs->next(i))
+    {
+      f = fs->nth(i);
+      if (!f->isMethod()) continue;
+      if (f->getName()==funcName) return startNode;
+    }
+    startNode = startNode->get_parentnd();
+  }
+  return NULL;
 }
 
 void CgenClassTable::code_dispatch_tables()
 {
   List<CgenNode> * nodes = nds;
   CgenNode* node = NULL;
-  for(;nodes->hd()!=NULL;nodes=nodes->tl())
+  CgenNode* defNode;
+  for(;nodes!=NULL;nodes=nodes->tl())
   {
     node=nodes->hd();
     str << node->name << DISPTAB_SUFFIX << LABEL;
+    Symbol nodeName;
+    Symbol methodName;
     for(unsigned int i=0;i<node->methods.size();i++)
-      str << WORD << node->name << "." << node->methods[i]->getName() << endl;
+    {
+      nodeName = node->name;
+      methodName = node->methods[i]->getName();
+      defNode = getDefiningNode(node,methodName);
+      nodeName = defNode->name;
+      str << WORD << nodeName << "." << methodName << endl;
+    }
   }
 }
 
@@ -786,6 +816,8 @@ void CgenNode::setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride)
 {
   //Loop over features
   Feature feature;
+  locations = new SymbolTable<Symbol, Location>();
+  locations->enterscope();
   for(int i=fromObj->features->first();fromObj->features->more(i);i=fromObj->features->next(i))
   {
     feature = fromObj->features->nth(i);
@@ -812,6 +844,8 @@ void CgenNode::setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride)
       //OK feature is an attribute
       //Attributes cannot be inherited, checked already by the semantic analyzer
       attributes.push_back(feature);
+      int offset = getFeatureOffsetByName(feature->getName(),true);
+      locations->addid(feature->getName(),new Location(SELF,offset));
     }
   }
 }
@@ -858,12 +892,13 @@ CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
 //Look up a class node
 CgenNode* CgenClassTable::getClassByName(Symbol className)
 {
+  if (className==SELF_TYPE) className = currentNode->getName();
   List<CgenNode>* nodes = nds;
   CgenNode* node;
   for(;nodes;nodes=nodes->tl())
   {
     node = nodes->hd();
-    if (node->name==className) return node;
+    if (node->getName()==className) return node;
   }
   return NULL;
 }
@@ -1066,7 +1101,6 @@ void CgenNode::set_parentnd(CgenNodeP p)
 
 void CgenNode::code(ostream &s,CgenClassTable* table)
 {
-  table->currentNode = this; //store the current CgenNode
   for(int i=features->first();features->more(i);i=features->next(i))
   {
     features->nth(i)->code(s,table);
@@ -1080,6 +1114,7 @@ void CgenClassTable::code_program_methods()
   {
     node = l->hd();
     if (node->basic()) continue; //ignore basic classes which are implemented in the runtime system
+    currentNode = node; //store the current CgenNode
     node->code(str,this);
   }
 }
@@ -1219,7 +1254,7 @@ void dispatch_handler(Expression expr, Symbol type_name, Symbol name, Expression
   }
   //Look up method offset and jump to function
   CgenNode* classNode = table->getClassByName(type_name);
-  int offset = classNode->getFeatureOffsetByName(name,true);
+  int offset = classNode->getFeatureOffsetByName(name,false);
   emit_load(T1,offset,T1,s);
   emit_jalr(T1,s);
 }
@@ -1246,9 +1281,9 @@ void cond_class::code(ostream &s, CgenClassTable* table)
   else_exp->code(s,table);
   emit_branch(label+1,s); //Jump over false code branch
   //Label true: Land here if true
-  emit_label_ref(label,s);
+  emit_label_def(label,s);
   then_exp->code(s,table);
-  emit_label_ref(label+1,s);
+  emit_label_def(label+1,s);
 }
 
 void loop_class::code(ostream &s, CgenClassTable* table)
