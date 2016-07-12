@@ -38,6 +38,8 @@ public:
    tree_node *copy()		 { return copy_Class_(); }
    virtual Class_ copy_Class_() = 0;
    virtual void code(ostream &s, CgenClassTable* table)=0;
+   virtual Symbol getName()=0;
+   virtual Features getFeatures()=0;
 #ifdef Class__EXTRAS
    Class__EXTRAS
 #endif
@@ -169,6 +171,8 @@ public:
    Class_ copy_Class_();
    void dump(ostream& stream, int n);
    virtual void code(ostream &s, CgenClassTable* table);
+   virtual Symbol getName(){return name;};
+   virtual Features getFeatures(){return features;};
 
 #ifdef Class__SHARED_EXTRAS
    Class__SHARED_EXTRAS
