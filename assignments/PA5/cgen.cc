@@ -603,6 +603,7 @@ void CgenClassTable::code_class_name_tab()
   }*/
   //Output pointers to the string objects
   str << CLASSNAMETAB << LABEL;
+
   for(unsigned int i=0;i<classNames.size();i++)
   {
     classSym = stringtable.lookup_string((char*)classNames[i].c_str());
@@ -661,14 +662,18 @@ void CgenClassTable::code_class_obj_table()
   str << CLASSOBJTAB << LABEL;
   List<CgenNode>* nodes = nds;
   CgenNode* node;
+  std::vector<CgenNode*> list;
   for(; nodes!=NULL; nodes=nodes->tl())
   {
     node = nodes->hd();
-    str << WORD << node->get_name() << PROTOBJ_SUFFIX << endl;
-    str << WORD << node->get_name() << CLASSINIT_SUFFIX << endl;
+    list.push_back(node);
+  }
+  for(int i=list.size()-1;i>=0;i--)
+  {
+    str << WORD << list[i]->get_name() << PROTOBJ_SUFFIX << endl;
+    str << WORD << list[i]->get_name() << CLASSINIT_SUFFIX << endl;
   }
 }
-
 
 void setUpCallee(ostream &s)
 {
