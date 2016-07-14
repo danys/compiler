@@ -660,18 +660,10 @@ void CgenClassTable::code_prototype_objects()
 void CgenClassTable::code_class_obj_table()
 {
   str << CLASSOBJTAB << LABEL;
-  List<CgenNode>* nodes = nds;
-  CgenNode* node;
-  std::vector<CgenNode*> list;
-  for(; nodes!=NULL; nodes=nodes->tl())
+  for(unsigned int i=0;i<classNames.size();i++)
   {
-    node = nodes->hd();
-    list.push_back(node);
-  }
-  for(int i=list.size()-1;i>=0;i--)
-  {
-    str << WORD << list[i]->get_name() << PROTOBJ_SUFFIX << endl;
-    str << WORD << list[i]->get_name() << CLASSINIT_SUFFIX << endl;
+    str << WORD << classNames[i] << PROTOBJ_SUFFIX << endl;
+    str << WORD << classNames[i] << CLASSINIT_SUFFIX << endl;
   }
 }
 
@@ -712,7 +704,7 @@ void CgenNode::code_init_method(ostream &s)
   //First call the parent class's initialization method
   if ((get_parentnd()!=NULL) && (get_parentnd()->name!=No_class))
   {
-    s << JAL << get_parentnd()->name << DISPTAB_SUFFIX << endl;
+    s << JAL << get_parentnd()->name << CLASSINIT_SUFFIX << endl;
   }
   //Loop over all the features and init attributes
   Feature feature;
@@ -816,9 +808,31 @@ void CgenClassTable::setClassTag(CgenNode* node)
   classtagindex++;
 }
 
+void CgenNode::setMethodsAndAttributesFromParent(CgenNode* fromObj)
+{
+  if (fromObj->getName()==No_class) return;
+  std::vector<Feature> attrs = fromObj->attributes;
+  std::vector<Feature> meths = fromObj->methods;
+  Feature feat;
+  Symbol featName;
+  for(unsigned int i=0;i<attrs.size();i++)
+  {
+    feat = attrs[i];
+    attributes.push_back(feat);
+    int offset = getFeatureOffsetByName(feat->getName(),true);
+    locations->addid(feat->getName(),new Location(SELF,offset));
+  }
+  for(unsigned int i=0;i<meths.size();i++)
+  {
+    feat = meths[i];
+    methods.push_back(feat);
+  }
+}
+
 //Set methods and attributes from the fiven fromObj to this class node
 void CgenNode::setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride)
 {
+  if (fromObj->getName()==No_class) return;
   //Loop over features
   Feature feature;
   locations = new SymbolTable<Symbol, Location>();
@@ -863,7 +877,6 @@ void CgenClassTable::setClassAttributesAndMethods()
   classNames.clear();
   //Start from the root node
   CgenNode* rootNode = root();
-  setClassTag(rootNode);
   CgenNode* curNode = NULL;
   rootNode->setMethodsAndAttributes(rootNode,false);
   std::stack<CgenNode*> nodeStack;
@@ -874,7 +887,7 @@ void CgenClassTable::setClassAttributesAndMethods()
     curNode = nodeStack.top();
     nodeStack.pop();
     setClassTag(curNode);
-    curNode->setMethodsAndAttributes(curNode->get_parentnd(),false); //add parent class methods and attributes
+    curNode->setMethodsAndAttributesFromParent(curNode->get_parentnd()); //add parent class methods and attributes
     curNode->setMethodsAndAttributes(curNode,true); //add this object's class methods and attributes
     List<CgenNode>* list = curNode->get_children();
     for(;list!=NULL;list=list->tl()) nodeStack.push(list->hd());
@@ -1500,7 +1513,7 @@ void new__class::code(ostream &s, CgenClassTable* table)
     emit_instantiate(s);
     //Call initialization method
     emit_load(T1,1,T2,s);
-    s << JALR << T1 << endl;
+    emit_jalr(T1,s);
   }
   else if (type_name==Bool) emit_load_bool(ACC,falsebool,s);
   else
