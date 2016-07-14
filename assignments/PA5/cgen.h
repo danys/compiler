@@ -98,6 +98,7 @@ public:
    void setClassTag(int tag){classTag=tag;}
    int getClassTag(){return classTag;}
    void setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride);
+   void setMethodsAndAttributesFromParent(CgenNode* fromObj);
    std::vector<Feature> attributes;
    std::vector<Feature> methods;
    SymbolTable<Symbol,Location>* locations; 
