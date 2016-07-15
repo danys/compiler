@@ -925,11 +925,12 @@ CgenNode* CgenClassTable::getClassByName(Symbol className)
 int CgenNode::getFeatureOffsetByName(Symbol featureName, bool isAttribute)
 {
   std::vector<Feature> feats;
-  if (isAttribute) feats = attributes;
+  int temp = 0;
+  if (isAttribute) {feats = attributes;temp=DEFAULT_OBJFIELDS;}
   else feats = methods;
   for(unsigned int i=0;i<feats.size();i++)
   {
-    if (feats[i]->getName()==featureName) return i;
+    if (feats[i]->getName()==featureName) return i+temp;
   }
   return -1;
 }
@@ -1236,7 +1237,7 @@ void assign_class::code(ostream &s, CgenClassTable* table)
 {
   expr->code(s,table);
   int offset = table->currentNode->getFeatureOffsetByName(name,true);
-  emit_store(ACC,offset+DEFAULT_OBJFIELDS,SELF,s);
+  emit_store(ACC,offset,SELF,s);
 }
 
 void dispatch_handler(Expression expr, Symbol type_name, Symbol name, Expressions actual,CgenClassTable* table, ostream &s)
