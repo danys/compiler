@@ -638,12 +638,12 @@ void CgenClassTable::code_prototype_objects()
       str << WORD;
       if (attribute->type_decl==Int)
       {
-	IntEntry* intentry = (IntEntry*)inttable.add_int(0);
+	IntEntry* intentry = (IntEntry*)inttable.lookup_string("0");
 	intentry->code_ref(str);
       }
       else if (attribute->type_decl==Str)
       {
-	StringEntry* strentry = (StringEntry*)stringtable.add_string("");
+	StringEntry* strentry = (StringEntry*)stringtable.lookup_string("");
 	strentry->code_ref(str);
       }
       else if (attribute->type_decl==Bool)
@@ -688,7 +688,7 @@ void tearDownCallee(int nArgs,ostream &s)
 
 void attr_class::code_init_attr(ostream &s,CgenNode* node)
 {
-  if (init!=NULL)
+  if (init->type!=NULL)
   {
     int offset = node->getFeatureOffsetByName(name,true);
     init->code(s,node->classTable); //Leaves init result in $a0
@@ -1449,9 +1449,9 @@ void eq_class::code(ostream &s, CgenClassTable* table)
   emit_addiu(SP,SP,4,s);
   varsFPOffset--;
   //First check if the pointers of the two objects are equal
-  emit_beq(T1,T2,curLabel,s); //If equal jump over equality_test
-  emit_load_bool(ACC,truebool,s);
+  emit_load_bool(ACC,truebool,s); //already store true in ACC in case T1==T2 => jump to curLabel
   emit_load_bool(A1,falsebool,s);
+  emit_beq(T1,T2,curLabel,s); //If equal jump over equality_test
   emit_jal("equality_test",s); //if equal ACC is returned otherwise A1
   emit_label_def(curLabel,s);
   curLabel++;
