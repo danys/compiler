@@ -1375,11 +1375,11 @@ void loadTwoInts(Expression e1, Expression e2, ostream &s, CgenClassTable* table
   emit_push(ACC,s); //also changes SP: emit_addiu(SP,SP,-4,s)
   varsFPOffset++;
   e2->code(s,table);
+  emit_instantiate(s); //create new int object (ACC contains Int object)
   emit_fetch_int(T2,ACC,s);
   emit_load(T1,1,SP,s);
   emit_addiu(SP,SP,4,s);
   varsFPOffset--;
-  emit_instantiate(s); //create new int object (ACC contains Int object)
 }
 
 void plus_class::code(ostream &s, CgenClassTable* table)
