@@ -139,11 +139,6 @@ void program_class::cgen(ostream &os)
 
   initialize_constants();
   CgenClassTable *codegen_classtable = new CgenClassTable(classes,os);
-  /*cout << "Walking AST and generating stack machine code" << endl;
-  for(int i=classes->first();classes->more(i);i=classes->next(i))
-  {
-    classes->nth(i)->code(os,codegen_classtable);
-  }*/
   os << "\n# end of generated code\n";
 }
 
@@ -832,11 +827,9 @@ void CgenNode::setMethodsAndAttributesFromParent(CgenNode* fromObj)
 //Set methods and attributes from the fiven fromObj to this class node
 void CgenNode::setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride)
 {
-  if (fromObj->getName()==No_class) return;
+  if ((fromObj->getName()==No_class) || (fromObj->features->len()==0))return;
   //Loop over features
   Feature feature;
-  locations = new SymbolTable<Symbol, Location>();
-  locations->enterscope();
   for(int i=fromObj->features->first();fromObj->features->more(i);i=fromObj->features->next(i))
   {
     feature = fromObj->features->nth(i);
@@ -885,6 +878,8 @@ void CgenClassTable::setClassAttributesAndMethods()
   while(!nodeStack.empty())
   {
     curNode = nodeStack.top();
+    curNode->locations = new SymbolTable<Symbol, Location>();
+    curNode->locations->enterscope();
     nodeStack.pop();
     setClassTag(curNode);
     curNode->setMethodsAndAttributesFromParent(curNode->get_parentnd()); //add parent class methods and attributes
@@ -901,7 +896,6 @@ CgenClassTable::CgenClassTable(Classes classes, ostream& s) : nds(NULL) , str(s)
    install_basic_classes();
    install_classes(classes);
    build_inheritance_tree();
-
    setClassAttributesAndMethods(); //find every class's list of attributes and methods and set the class tags
    code();
    exitscope();
