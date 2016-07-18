@@ -15,6 +15,7 @@ class CgenClassTable;
 typedef CgenClassTable *CgenClassTableP;
 
 class CgenNode;
+class Location;
 typedef CgenNode *CgenNodeP;
 
 class CgenClassTable : public SymbolTable<Symbol,CgenNode> {
@@ -64,6 +65,7 @@ public:
    CgenNodeP root();
    CgenNode* getClassByName(Symbol className);
    CgenNode* currentNode;
+   Location* getLocationByName(Symbol varName);
 };
 
 class Location
@@ -105,6 +107,7 @@ public:
 
    CgenClassTable* classTable;
    int getFeatureOffsetByName(Symbol featureName, bool isAttribute);
+   SymbolTable<Symbol,Location>* getLocations(){return locations;};
    void code_init_method(ostream &s);
    virtual void code(ostream &s, CgenClassTable* table);
 };
