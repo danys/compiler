@@ -935,6 +935,12 @@ int CgenNode::getFeatureOffsetByName(Symbol featureName, bool isAttribute)
   return -1;
 }
 
+Location* CgenClassTable::getLocationByName(Symbol varName)
+{
+  SymbolTable<Symbol, Location>* locs = currentNode->getLocations();
+  return locs->lookup(varName);
+}
+
 void CgenClassTable::install_basic_classes()
 {
 
@@ -1237,7 +1243,12 @@ void assign_class::code(ostream &s, CgenClassTable* table)
 {
   expr->code(s,table);
   int offset = table->currentNode->getFeatureOffsetByName(name,true);
-  emit_store(ACC,offset,SELF,s);
+  if (offset!=-1) emit_store(ACC,offset,SELF,s);
+  else
+  {
+    Location* loc = table->getLocationByName(name);
+    emit_store(ACC,loc->getOffset(),loc->getRegister(),s);
+  }
 }
 
 void dispatch_handler(Expression expr, Symbol type_name, Symbol name, Expressions actual,CgenClassTable* table, ostream &s)
