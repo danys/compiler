@@ -1510,16 +1510,16 @@ void new__class::code(ostream &s, CgenClassTable* table)
     //Get the class tag
     emit_load(T1,0,SELF,s);
     //Find the init method of this class in class_objTab => word position = classTag*2
-    emit_load_imm(T2,2,s);
+    emit_load_imm(T2,2*WORD_SIZE,s);
     emit_mul(T1,T2,T1,s);
     emit_load_address(T2,CLASSOBJTAB,s);
-    emit_addu(T1,T2,T1,s);
-    emit_load(ACC,0,T1,s); //load reference to prototype object into ACC
+    emit_addu(T2,T2,T1,s);
+    emit_load(ACC,0,T2,s); //load reference to prototype object into ACC
     //Create a new instance of the class
-    emit_instantiate(s);
+    emit_instantiate(s); //Object.copy modifies T1, therefore T2 is used after this line
     //Call initialization method
-    emit_load(T1,1,T2,s);
-    emit_jalr(T1,s);
+    emit_load(T2,1,T2,s);
+    emit_jalr(T2,s);
   }
   else if (type_name==Bool) emit_load_bool(ACC,falsebool,s);
   else
