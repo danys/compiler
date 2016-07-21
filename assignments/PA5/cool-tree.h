@@ -100,6 +100,11 @@ public:
    tree_node *copy()		 { return copy_Case(); }
    virtual Case copy_Case() = 0;
    virtual void code(ostream &s, CgenClassTable* table)=0;
+   virtual Symbol getTypeDecl()=0;
+   virtual void setMaxTag(int tag_)=0;
+   virtual void setTag(int tag_)=0;
+   virtual int getMaxTag()=0;
+   virtual int getTag()=0;
 
 #ifdef Case_EXTRAS
    Case_EXTRAS
@@ -270,6 +275,8 @@ public:
    Symbol name;
    Symbol type_decl;
    Expression expr;
+   int tag;
+   int maxTag;
 public:
    branch_class(Symbol a1, Symbol a2, Expression a3) {
       name = a1;
@@ -279,6 +286,11 @@ public:
    Case copy_Case();
    void dump(ostream& stream, int n);
    virtual void code(ostream &s, CgenClassTable* table);
+   virtual Symbol getTypeDecl(){return type_decl;};
+   virtual void setMaxTag(int tag_){tag=tag_;};
+   virtual void setTag(int tag_){maxTag=tag_;};
+   virtual int getMaxTag(){return maxTag;};
+   virtual int getTag(){return tag;};
 
 #ifdef Case_SHARED_EXTRAS
    Case_SHARED_EXTRAS
