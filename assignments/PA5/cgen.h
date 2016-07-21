@@ -6,6 +6,8 @@
 #include <vector>
 #include <string>
 #include <stack>
+#include <algorithm>
+#include <list>
 
 enum Basicness     {Basic, NotBasic};
 #define TRUE 1
@@ -86,6 +88,7 @@ private:
    Basicness basic_status;                    // `Basic' if class is basic
                                               // `NotBasic' otherwise
    int classTag;
+   int maxClassTag;
 
 public:
    CgenNode(Class_ c,
@@ -98,7 +101,9 @@ public:
    CgenNodeP get_parentnd() { return parentnd; }
    int basic() { return (basic_status == Basic); }
    void setClassTag(int tag){classTag=tag;}
+   void setMaxClassTag(int tag){maxClassTag=tag;}
    int getClassTag(){return classTag;}
+   int getMaxClassTag(){return maxClassTag;}
    void setMethodsAndAttributes(CgenNode* fromObj, bool checkOverride);
    void setMethodsAndAttributesFromParent(CgenNode* fromObj);
    std::vector<Feature> attributes;
