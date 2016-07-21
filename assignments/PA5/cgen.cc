@@ -590,12 +590,6 @@ void CgenClassTable::code_class_name_tab()
   //offset position to a string object refering to the name
   //of the class in question
   StringEntry* classSym;
-  //Put all class names as string objects in memory
-  /*for(unsigned int i=0;i<classNames.size();i++)
-  {
-    classSym = stringtable.add_string((char*)classNames[i].c_str(),classNames[i].size());
-    classSym->code_def(str,stringclasstag);
-  }*/
   //Output pointers to the string objects
   str << CLASSNAMETAB << LABEL;
 
@@ -794,6 +788,7 @@ void CgenClassTable::code_constants()
 void CgenClassTable::setClassTag(CgenNode* node)
 {
   node->setClassTag(classtagindex);
+  node->setMaxClassTag(classtagindex);
   if (node->name->equal_string("String",6)==1) stringclasstag = classtagindex;
   else if (node->name->equal_string("Int",3)==1) intclasstag = classtagindex;
   else if (node->name->equal_string("Bool",4)==1) boolclasstag = classtagindex;
@@ -874,18 +869,35 @@ void CgenClassTable::setClassAttributesAndMethods()
   rootNode->setMethodsAndAttributes(rootNode,false);
   std::stack<CgenNode*> nodeStack;
   nodeStack.push(rootNode);
+  CgenNode* lastNode = NULL;
   //DFS traversal through the class nodes
   while(!nodeStack.empty())
   {
     curNode = nodeStack.top();
+    if (curNode==NULL)
+    {
+      //Set the maximum class tag of the last node's parent
+      nodeStack.pop();
+      if (lastNode!=NULL)
+      {
+	lastNode=lastNode->get_parentnd();
+	List<CgenNode>* children = lastNode->get_children();
+	for(;children!=NULL;children=children->tl())
+	  lastNode->setMaxClassTag(std::max(lastNode->getMaxClassTag(),children->hd()->getMaxClassTag()));
+      }
+      continue;
+    }
+    //Set up locations
     curNode->locations = new SymbolTable<Symbol, Location>();
     curNode->locations->enterscope();
+    //Pop an element from the stack
     nodeStack.pop();
     setClassTag(curNode);
     curNode->setMethodsAndAttributesFromParent(curNode->get_parentnd()); //add parent class methods and attributes
     curNode->setMethodsAndAttributes(curNode,true); //add this object's class methods and attributes
     List<CgenNode>* list = curNode->get_children();
     for(;list!=NULL;list=list->tl()) nodeStack.push(list->hd());
+    nodeStack.push(NULL); //push NULL to mark last child
   }
 }
 
@@ -1336,9 +1348,58 @@ void branch_class::code(ostream &s, CgenClassTable* table)
   table->currentNode->locations->exitscope();
 }
 
+bool caseSorter(const Case x, const Case y)
+{
+  return ((x->getTag() >= y->getTag()) && (x->getMaxTag() <= y->getMaxTag()));
+}
+
 void typcase_class::code(ostream &s, CgenClassTable* table)
 {
-  //TODO Case selection
+  int label = curLabel;
+  curLabel += cases->len()+3;
+  //Evaluate case expression
+  expr->code(s,table);
+  //Check if expr is NULL
+  emit_bne(ACC,ZERO,label,s);
+  Symbol fname = table->currentNode->get_filename();
+  StringEntry* entry = stringtable.lookup_string(fname->get_string());
+  emit_load_string(ACC,entry,s);
+  emit_load_imm(T1,table->currentNode->get_line_number(),s);
+  //Line number in T1 and filename in ACC
+  emit_jal("_case_abort2",s); //program execution halts when this line is executed
+  emit_label_def(label,s);
+  emit_push(ACC,s);
+  varsFPOffset++;
+  label++;
+  std::vector<Case> sortedCases;
+  for(int i=cases->first();cases->more(i);i=cases->next(i))
+  {
+    Case case_ = cases->nth(i);
+    CgenNode* node = table->getClassByName(case_->getTypeDecl());
+    case_->setTag(node->getClassTag());
+    case_->setMaxTag(node->getMaxClassTag());
+    sortedCases.push_back(case_);
+  }
+  sort(sortedCases.begin(),sortedCases.end(),caseSorter);
+  for(unsigned int i=0;i<sortedCases.size();i++)
+  {
+    Case case_ = sortedCases[i];
+    emit_label_def(label+i,s);
+    emit_load(ACC,1,SP,s); //get the saved accumulator from the stack
+    emit_load(T1,0,ACC,s); //retrieve the case expression class tag
+    emit_blti(T1,case_->getTag(),label+i+1,s); //if tag out of range jump to next case branch
+    emit_bgti(T1,case_->getMaxTag(),label+i+1,s); //if not in correct subtree jump to next case branch
+    case_->code(s,table);
+    emit_branch(label+sortedCases.size()+1,s);
+  }
+  //If we reach this point no case branch matched the case expression
+  emit_label_def(label+sortedCases.size(),s);
+  emit_load(ACC,1,SP,s);
+  emit_jal("_case_abort",s);
+  //Jump to this point if one case branch matched the case expression
+  emit_label_def(label+sortedCases.size()+1,s);
+  emit_addiu(SP,SP,WORD_SIZE,s);
+  varsFPOffset--;
 }
 
 void block_class::code(ostream &s, CgenClassTable* table)
